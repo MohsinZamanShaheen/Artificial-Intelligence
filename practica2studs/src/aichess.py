@@ -49,8 +49,8 @@ class Aichess():
         self.listVisitedStates = []
         self.listVisitedSituations = []
         self.pathToTarget = []
-        self.currentStateW = self.chess.boardSim.currentStateW;
-        self.depthMax = 8;
+        self.currentStateW = self.chess.boardSim.currentStateW
+        self.depthMax = 8
         self.checkMate = False
 
     def copyState(self, state):
@@ -333,10 +333,38 @@ class Aichess():
 
     def minimaxGame(self, depthWhite,depthBlack):
         
-        currentState = self.getCurrentState()        
-        # Your code here
+        currentState = self.getCurrentState()   
+        # Your code here  
+        print("current state is: ", currentState)
+        v = self.max_value(currentState)
 
-        
+        for a, successor in self.getListNextStatesW(currentState):
+            if a == v:
+                return a
+            continue
+
+    def max_value(self,state):
+        if self.is_terminal_state(state):
+            return self.heuristica(state,1)
+        v = float('-inf')
+        for a, successor in self.getListNextStatesW(state):
+            v = max(v,self.min_value(successor))
+        return v
+
+    def min_value(self,state):
+        if self.is_terminal_state(state):
+            return self.heuristica(state,1)
+        v = float('+inf')
+        for a, successor in self.getListNextStatesB(state):
+            v = min(v, self.max_value(successor))
+        return v
+
+    def is_terminal_state(self,state):
+        if self.getListNextStatesB(state) == None or self.getListNextStatesW(state) == None:
+            return True
+        else:
+            return False
+
 
     def alphaBetaPoda(self, depthWhite,depthBlack):
         
