@@ -172,7 +172,7 @@ class Aichess():
                 # That would be checkMate
                 return True
         if brState != None:
-            # We check the possible positions of the black tower, and we chck if in any o them it may killt he white king
+            # We check the possible positions of the black tower, and we chck if in any of them it may kill the white king
             for brPosition in self.getNextPositions(brState):
                 if wkPosition == brPosition:
                     return True
@@ -263,6 +263,8 @@ class Aichess():
         wrState = self.getPieceState(currentState, 2)
         brState = self.getPieceState(currentState, 8)
 
+
+        # Getting row and columns for each piece 
         filaBk = bkState[0]
         columnaBk = bkState[1]
         filaWk = wkState[0]
@@ -285,7 +287,7 @@ class Aichess():
                 filaR = abs(filaBk - filaWr)
                 columnaR = abs(columnaWr - columnaBk)
                 value += (min(filaR, columnaR) + abs(filaR - columnaR))/10
-            # If we are white white, the closer our king from the oponent, the better
+            # If we are white, the closer our king from the oponent, the better
             # we substract 7 to the distance between the two kings, since the max distance they can be at in a board is 7 moves
             value += (7 - distReis)
             # If they black king is against a wall, we prioritize him to be at a corner, precisely to corner him
@@ -295,7 +297,7 @@ class Aichess():
             else:
                 value += (max(abs(filaBk - 3.5), abs(columnaBk - 3.5))) * 10
 
-        # They killed the black tower. Within this method, we consider the same conditions than in the previous condition
+        # They killed the black tower.
         # Within this method we consider the same conditions than in the previous section, but now with reversed values.
         if wrState == None:
             value += -50
@@ -322,7 +324,7 @@ class Aichess():
 
         # We are checking whites
         if self.isWatchedWk(currentState):
-            value += -20
+            value += -20 
 
         # If black, values are negative, otherwise positive
         if not color:
@@ -331,40 +333,47 @@ class Aichess():
         return value
 
 
-    def minimaxGame(self, depthWhite,depthBlack):
+    def minimaxGame(self, depthWhite, depthBlack, playerTurn):      
+        currentState = self.getCurrentState()
+        print("Initial current state: ",  currentState) 
+
+        if depthWhite == 0:
+            return self.heuristica(currentState, playerTurn)
+        if depthBlack == 0:
+            return self.heuristica(currentState, playerTurn)
         
-        currentState = self.getCurrentState()   
-        # Your code here  
-        print("current state is: ", currentState)
-        v = self.max_value(currentState)
-
-        for a, successor in self.getListNextStatesW(currentState):
-            if a == v:
-                return a
-            continue
-
-    def max_value(self,state):
-        if self.is_terminal_state(state):
-            return self.heuristica(state,1)
-        v = float('-inf')
-        for a, successor in self.getListNextStatesW(state):
-            v = max(v,self.min_value(successor))
-        return v
-
-    def min_value(self,state):
-        if self.is_terminal_state(state):
-            return self.heuristica(state,1)
-        v = float('+inf')
-        for a, successor in self.getListNextStatesB(state):
-            v = min(v, self.max_value(successor))
-        return v
-
-    def is_terminal_state(self,state):
-        if self.getListNextStatesB(state) == None or self.getListNextStatesW(state) == None:
-            return True
+        if playerTurn:
+            best_value = self.minimax(currentState, depthWhite, True)
         else:
-            return False
+            best_value = self.minimax(currentState, depthBlack, False)
+        return best_value
+    
+    
+    def minimax(self,state, depth, playerTurn):
+        if playerTurn:
+            return self.get_max(state,depth)
+        else:
+            return self.get_min(state,depth)
+        
+    def get_max(self, state, depth):
+        best_value = -float('inf')
+        white_states = self.getWhiteState(state)
 
+        for successor in self.getListNextStatesW(white_states):
+            print("Successor white: ", successor)
+            value = max(best_value, self.get_min(successor,depth-1))
+            best_value = value
+        return best_value
+
+    def get_min(self, state, depth):
+        best_value = float('inf')
+        black_states = self.getBlackState(state)
+        print("Black states: ", black_states)
+        for successor in self.getListNextStatesB(black_states):
+            value = min(best_value, self.get_max(successor,depth-1))
+            best_value = value
+        return best_value
+          
 
     def alphaBetaPoda(self, depthWhite,depthBlack):
         
@@ -444,7 +453,8 @@ if __name__ == "__main__":
     aichess.chess.boardSim.print_board()
 
   # Run exercise 1
-    aichess.minimaxGame(4,4)
+    playerTurn = True # Whites start first = True
+    aichess.minimaxGame(4,4, playerTurn)
   # Add code to save results and continue with other exercises
 
   
