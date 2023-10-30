@@ -128,7 +128,7 @@ class Board():
                         self.currentStateW.append([i, j, int(initState[i][j])])
 
                     # target state (Blacks)
-                    if initState[i][j] > 6 and initState[i][j] > 7:
+                    if initState[i][j] > 6 and initState[i][j] < 7:
                         self.currentStateB.append([i, j, int(initState[i][j])])
 
     def isSameState(self, a, b):
@@ -173,6 +173,8 @@ class Board():
             listOtherPieces.remove(mypiece)
 
             listPotentialNextStates = []
+
+            #print("White: ->>>: ", str(self.board[mypiece[0]][mypiece[1]]))
 
             if (str(self.board[mypiece[0]][mypiece[1]]) == 'K'):
 
@@ -508,8 +510,8 @@ class Board():
 
         self.listNextStates = []
 
-        print("mypieces",mypieces)
-        print("len ",len(mypieces))
+        #print("mypieces",mypieces)
+        #print("len ",len(mypieces))
         for j in range(len(mypieces)):
 
             self.listSuccessorStates = []
@@ -521,9 +523,9 @@ class Board():
 
             listPotentialNextStates = []
 
-            print("T1: ->>>: ", str(self.board[mypiece[0]][mypiece[1]]))
+            #print("Black: ->>>: ", str(self.board[mypiece[0]][mypiece[1]]))
 
-            if (str(self.board[mypiece[0]][mypiece[1]].name) == 'K'):
+            if (self.board[mypiece[0]][mypiece[1]].name == 'K'):
 
                 #print(" mypiece at  ",mypiece[0],mypiece[1])
                 listPotentialNextStates = [[mypiece[0] + 1, mypiece[1], 12], \
@@ -543,7 +545,7 @@ class Board():
                             self.listSuccessorStates.append([aa[0], aa[1], aa[2]])
 
 
-            elif (str(self.board[mypiece[0]][mypiece[1]].name) == 'P'):
+            elif (self.board[mypiece[0]][mypiece[1]].name == 'P'):
 
                 listPotentialNextStates = [[mypiece[0], mypiece[1], 7], [mypiece[0] + 1, mypiece[1], 7]]
                 # check they are empty
@@ -619,7 +621,7 @@ class Board():
                     pos[2] = 6
                     overlapping = False
                     """
-                    if pos in self.currentStateW:
+                    if pos in self.currentStateB:
                         overlapping = True
                     """
 

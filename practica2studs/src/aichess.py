@@ -335,44 +335,112 @@ class Aichess():
 
     def minimaxGame(self, depthWhite, depthBlack, playerTurn):      
         currentState = self.getCurrentState()
-        print("Initial current state: ",  currentState) 
+        print("Initial state of all pieces: ",  currentState) 
 
-        if depthWhite == 0:
-            return self.heuristica(currentState, playerTurn)
-        if depthBlack == 0:
-            return self.heuristica(currentState, playerTurn)
-        
         if playerTurn:
-            best_value = self.minimax(currentState, depthWhite, True)
+            best_value = self.minimax(currentState, depthWhite, playerTurn)
         else:
-            best_value = self.minimax(currentState, depthBlack, False)
+            best_value = self.minimax(currentState, depthBlack, playerTurn)
         return best_value
     
-    
+    '''
     def minimax(self,state, depth, playerTurn):
         if playerTurn:
-            return self.get_max(state,depth)
+            #de lista general, sacamos las piezas blancas
+            white_pieces = self.getWhiteState(state)
+            return self.get_max(white_pieces,depth,playerTurn)
         else:
-            return self.get_min(state,depth)
+            black_pieces = self.getWhiteState(state)
+            return self.get_min(black_pieces,depth,playerTurn)
         
-    def get_max(self, state, depth):
+    def get_max(self, whitePieces, depth,playerTurn):
+
+        if depth == 0:
+            return self.heuristica(whitePieces, True)
+        
         best_value = -float('inf')
-        white_states = self.getWhiteState(state)
-
-        for successor in self.getListNextStatesW(white_states):
-            print("Successor white: ", successor)
-            value = max(best_value, self.get_min(successor,depth-1))
-            best_value = value
+        #print("Successors white: ", self.getListNextStatesW(whitePieces))
+        for successor in self.getListNextStatesW(whitePieces):       
+            max_value = max(best_value, self.get_min(successor,depth-1, not playerTurn))
+            best_value = max_value
         return best_value
 
-    def get_min(self, state, depth):
+    def get_min(self, state, depth,playerTurn):
+
+        if depth == 0:
+            return self.heuristica(state, False)
+         
         best_value = float('inf')
-        black_states = self.getBlackState(state)
-        print("Black states: ", black_states)
-        for successor in self.getListNextStatesB(black_states):
-            value = min(best_value, self.get_max(successor,depth-1))
+
+        for successor in self.getListNextStatesB(state):
+            value = min(best_value, self.get_max(successor,depth-1, playerTurn))
             best_value = value
         return best_value
+    '''
+    def minimax(self,state, depth, playerTurn):
+        print("State: ", state)
+        self.newBoardSim(state)
+        self.chess.boardSim.print_board()
+        print("Depth is: ", depth)
+        if playerTurn:
+            print("Turn white")
+            if depth == 0 or self.isWatchedWk(state):
+                return self.heuristica(state, playerTurn)
+
+            currBestValue = -float('inf')
+            print("white current evaluation: ", currBestValue, "\n")
+            print("Successors Whites: ", self.getListNextStatesW(state), "\n")
+            for successor in self.getListNextStatesW(state):
+                self.newBoardSim(successor)
+                self.chess.boardSim.print_board()
+                newBestValue = self.minimax(successor, depth-1, False)
+                if newBestValue > currBestValue:
+                    currBestValue = newBestValue
+            return currBestValue
+        
+        else:
+            print("Turn blacks")
+            if depth == 0 or self.isWatchedBk(state):
+                return self.heuristica(state, playerTurn)
+            #blacks = self.getBlackState(state)
+            best_value = float('inf')
+            print("blacks current evaluation: ", best_value, "\n")
+            print("Successors Blacks: ", self.getListNextStatesB(state), "\n")
+            for successor in self.getListNextStatesB(state):
+                self.newBoardSim(successor)
+                self.chess.boardSim.print_board()
+                newBestValue = self.minimax(successor, depth-1, True)
+                if newBestValue < best_value:
+                    best_value = newBestValue
+            return best_value
+            
+    '''
+        def get_max(self, whitePieces, depth):
+
+            if depth == 0:
+                return self.heuristica(whitePieces, True)
+            
+            best_value = -float('inf')
+
+            for piece in whitePieces:
+                for nextPositions in self.getNextPositions(piece):
+
+                    max_value = max(best_value, self.get_min(nextPositions,depth-1))
+                    best_value = max_value
+            return best_value
+
+        def get_min(self, state, depth):
+
+            if depth == 0:
+                return self.heuristica(state, False)
+            
+            best_value = float('inf')
+
+            for successor in self.getListNextStatesB(state):
+                value = min(best_value, self.get_max(successor,depth-1))
+                best_value = value
+            return best_value
+    '''   
           
 
     def alphaBetaPoda(self, depthWhite,depthBlack):
@@ -456,6 +524,6 @@ if __name__ == "__main__":
     playerTurn = True # Whites start first = True
     aichess.minimaxGame(4,4, playerTurn)
   # Add code to save results and continue with other exercises
-
+    aichess.chess.board.print_board()
   
 
