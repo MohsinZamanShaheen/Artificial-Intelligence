@@ -167,7 +167,7 @@ class Chess():
             # AI state change - identify change to make in state
             for m in range(len(self.boardSim.currentStateW)):
 
-                print("piece to move",self.board.currentStateW[m])
+                # print("piece to move",self.board.currentStateW[m])
                 aa = self.boardSim.currentStateW[m]               
                 # only the one to move and only for whites so far
                 if self.boardSim.listNames[int(aa[2]-1)] == str(target_piece) and target_piece.color:
@@ -180,6 +180,7 @@ class Chess():
                                                        
                    
                #   print("Next States: ",self.board.getListNextStatesW(self.board.currentStateW[m]))
+
             # AI state change - identify change to make in state
             for m in range(len(self.boardSim.currentStateB)):
 
@@ -191,7 +192,7 @@ class Chess():
                     self.boardSim.currentStateB[m][0] = to[0]
                     self.boardSim.currentStateB[m][1] = to[1]
                     print("->piece to state ", self.boardSim.currentStateB[m])
-            
+
     #                   print("Next States: ",self.board.getListNextStatesW(self.board.currentStateW[m]))
 
 

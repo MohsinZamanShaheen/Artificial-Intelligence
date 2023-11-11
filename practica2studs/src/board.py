@@ -128,7 +128,7 @@ class Board():
                         self.currentStateW.append([i, j, int(initState[i][j])])
 
                     # target state (Blacks)
-                    if initState[i][j] > 6 and initState[i][j] < 7:
+                    if initState[i][j] > 6 and initState[i][j] < 13:
                         self.currentStateB.append([i, j, int(initState[i][j])])
 
     def isSameState(self, a, b):

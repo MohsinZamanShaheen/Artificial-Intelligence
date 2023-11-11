@@ -50,6 +50,7 @@ class Aichess():
         self.listVisitedSituations = []
         self.pathToTarget = []
         self.currentStateW = self.chess.boardSim.currentStateW
+        self.currentStateB = self.chess.boardSim.currentStateB
         self.depthMax = 8
         self.checkMate = False
 
@@ -377,43 +378,54 @@ class Aichess():
             best_value = value
         return best_value
     '''
-    def minimax(self,state, depth, playerTurn):
+
+    def minimax(self, state, depth, playerTurn):
         print("State: ", state)
-        self.newBoardSim(state)
-        self.chess.boardSim.print_board()
         print("Depth is: ", depth)
+
         if playerTurn:
             print("Turn white")
-            if depth == 0 or self.isWatchedWk(state):
-                return self.heuristica(state, playerTurn)
+            #State in this case will be the black states, and we need to see all board
+            if depth == 0 or self.isWatchedWk(state+self.currentStateW):
+                return self.heuristica(state+self.currentStateW, playerTurn)
 
             currBestValue = -float('inf')
             print("white current evaluation: ", currBestValue, "\n")
-            print("Successors Whites: ", self.getListNextStatesW(state), "\n")
-            for successor in self.getListNextStatesW(state):
-                self.newBoardSim(successor)
+            print("Successors Whites: ", self.getListNextStatesW(self.currentStateW), "\n")
+
+            #We see the successors only for the states in White
+            for successor in self.getListNextStatesW(self.currentStateW):
+                #We add the black pieces at the board
+                self.newBoardSim(successor+state)
                 self.chess.boardSim.print_board()
-                newBestValue = self.minimax(successor, depth-1, False)
+                self.currentStateW = successor
+                newBestValue = self.minimax(successor, depth - 1, False)
                 if newBestValue > currBestValue:
                     currBestValue = newBestValue
             return currBestValue
-        
+
         else:
             print("Turn blacks")
-            if depth == 0 or self.isWatchedBk(state):
-                return self.heuristica(state, playerTurn)
-            #blacks = self.getBlackState(state)
+            # State in this case will be the white states, and we need to see all board
+            if depth == 0 or self.isWatchedBk(state+self.currentStateB):
+                return self.heuristica(state+self.currentStateB, playerTurn)
+
             best_value = float('inf')
             print("blacks current evaluation: ", best_value, "\n")
-            print("Successors Blacks: ", self.getListNextStatesB(state), "\n")
-            for successor in self.getListNextStatesB(state):
-                self.newBoardSim(successor)
+            print("Successors Blacks: ", self.getListNextStatesB(self.currentStateB), "\n")
+
+            # We see the successors only for the states in Black
+            for successor in self.getListNextStatesB(self.currentStateB):
+                # We add the white pieces at the board
+                self.newBoardSim(successor+state)
                 self.chess.boardSim.print_board()
-                newBestValue = self.minimax(successor, depth-1, True)
+                self.currentStateB = successor
+                newBestValue = self.minimax(successor, depth - 1, True)
+
                 if newBestValue < best_value:
                     best_value = newBestValue
             return best_value
-            
+
     '''
         def get_max(self, whitePieces, depth):
 
@@ -516,13 +528,18 @@ if __name__ == "__main__":
     # initialise board
     print("stating AI chess... ")
     aichess = Aichess(TA, True)
+    print("blackstate")
+    print(aichess.currentStateB)
 
+    print("whitestate")
+    print(aichess.currentStateW)
     print("printing board")
     aichess.chess.boardSim.print_board()
 
   # Run exercise 1
     playerTurn = True # Whites start first = True
     aichess.minimaxGame(4,4, playerTurn)
+
   # Add code to save results and continue with other exercises
     aichess.chess.board.print_board()
   
