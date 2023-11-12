@@ -370,6 +370,7 @@ class Aichess():
                     newWhiteState.remove(wrState)
 
         return newWhiteState
+    
     def isCheckMate(self, state):
         brState = self.getPieceState(state, 8)
         wrState = self.getPieceState(state, 2)
