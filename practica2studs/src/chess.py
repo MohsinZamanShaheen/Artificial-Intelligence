@@ -151,6 +151,11 @@ class Chess():
                         self.boardSim.board[self.white_ghost_piece[0] - 1][self.black_ghost_piece[1]] = None
                         self.white_ghost_piece = None
 
+            if target_piece.color == True:
+                self.boardSim.currentStateB = [x for x in self.boardSim.currentStateB if [x[0], x[1]] != to[:2]]
+            else:
+                self.boardSim.currentStateW = [x for x in self.boardSim.currentStateW if [x[0], x[1]] != to[:2]]
+
             self.boardSim.board[to[0]][to[1]] = target_piece
             self.boardSim.board[start[0]][start[1]] = None
             if verbose:

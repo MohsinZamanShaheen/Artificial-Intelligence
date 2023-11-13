@@ -51,7 +51,6 @@ class Aichess():
         self.pathToTarget = []
         self.currentStateW = self.chess.boardSim.currentStateW
         self.currentStateB = self.chess.boardSim.currentStateB
-        self.depthMax = 4
         self.checkMate = False
 
     def copyState(self, state):
@@ -333,21 +332,36 @@ class Aichess():
         currentState = self.getCurrentState()
         print("Initial state of all pieces: ", currentState)
 
-        while not self.isCheckMate(currentState):
+        while not self.isCheckMate(self.copyState(currentState)):
             currentState = self.getCurrentState()
             self.newBoardSim(currentState)
-
             if playerTurn:
                 movimiento = self.minimax(currentState, depthWhite, playerTurn)
+
             else:
                 movimiento = self.minimax(currentState, depthBlack, playerTurn)
 
-            piece_moved = self.getMovement(currentState, movimiento)
+            if (movimiento is None):
+                if(playerTurn == False):
+                    color = "BLANCAS"
+                else:
+                    color = "NEGRAS"
+                return print("JAQUE MATE, GANAN LAS ", color)
+
+            if (self.isVisitedSituation(playerTurn, self.copyState(movimiento))):
+                return print("JUEGO EN TABLAS")
+
+
+
+            self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
+
+            piece_moved = self.getMovement(currentState, self.copyState(movimiento))
             self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
             self.chess.board.print_board()
             playerTurn = not playerTurn
 
-    def eliminarBlack(self, blackState,  brState, successor):
+    def eliminarBlack(self, blackState, brState, successor):
+        self.newBoardSim(blackState)
         newBlackState = blackState.copy()
         if brState != None:
             if len(successor) >= 2:
@@ -357,9 +371,11 @@ class Aichess():
                 if brState[0:2] == successor[0][0:2]:
                     newBlackState.remove(brState)
 
+        self.newBoardSim(newBlackState)
         return newBlackState
 
     def eliminarWhite(self, whiteState, wrState, successor):
+        self.newBoardSim(whiteState)
         newWhiteState = whiteState.copy()
         if wrState != None:
             if len(successor) >= 2:
@@ -368,10 +384,11 @@ class Aichess():
             else:
                 if wrState[0:2] == successor[0][0:2]:
                     newWhiteState.remove(wrState)
-
+        self.newBoardSim(newWhiteState)
         return newWhiteState
-    
+
     def isCheckMate(self, state):
+        self.newBoardSim(state)
         brState = self.getPieceState(state, 8)
         wrState = self.getPieceState(state, 2)
         whiteState = self.getWhiteState(state)
@@ -380,45 +397,41 @@ class Aichess():
         for successor in self.getListNextStatesW(whiteState):
             successor += self.eliminarBlack(blackState, brState, successor)
             if not self.isWatchedWk(successor):
+                self.newBoardSim(state)
                 return False
 
         for successor in self.getListNextStatesB(blackState):
             successor += self.eliminarWhite(whiteState, wrState, successor)
 
             if not self.isWatchedBk(successor):
+                self.newBoardSim(state)
                 return False
 
         return True
 
-
     def minimax(self, state, depth, playerTurn):
-
         if depth == 0 or self.isCheckMate(state):
             return self.heuristica(state, playerTurn)
 
+
+        maxState = None
         if playerTurn:
             currBestValue = float('-inf')
 
             blackState = self.getBlackState(state)
             whiteState = self.getWhiteState(state)
             brState = self.getPieceState(state, 8)
-            maxState = None
 
             # We see the successors only for the states in White
             for successor in self.getListNextStatesW(whiteState):
                 successor += self.eliminarBlack(blackState, brState, successor)
 
                 if not self.isWatchedWk(successor):
+                    self.newBoardSim(state)
                     bestValue = self.minimax(successor, depth - 1, False)
                     if bestValue > currBestValue:
                         currBestValue = bestValue
                         maxState = successor
-
-            if depth == self.depthMax:
-                return maxState
-
-            return currBestValue
-
         else:
             currBestValue = float('inf')
             whiteState = self.getWhiteState(state)
@@ -430,15 +443,16 @@ class Aichess():
                 successor += self.eliminarWhite(whiteState, wrState, successor)
 
                 if not self.isWatchedBk(successor):
+                    self.newBoardSim(state)
                     bestValue = self.minimax(successor, depth - 1, True)
                     if bestValue < currBestValue:
                         currBestValue = bestValue
                         maxState = successor
 
-            if depth == self.depthMax:
-                return maxState
+        if depth == self.depthMax:
+            return maxState
 
-            return currBestValue
+        return currBestValue
 
     def alphaBetaPoda(self, depthWhite, depthBlack):
 
@@ -503,16 +517,27 @@ if __name__ == "__main__":
     TA = np.zeros((8, 8))
 
     # Configuració inicial del taulell
-    TA[7][0] = 2
-    TA[7][4] = 6
-    TA[0][7] = 8
-    TA[0][4] = 12
+    #TA[7][0] = 2
+    #TA[7][4] = 6
+    #TA[0][7] = 8
+    #TA[0][4] = 12
+
+
+
+    #TA[2][4] = 2
+    #TA[1][6] = 12
+    #TA[7][4] = 6
+
+    TA[7][6] = 2
+    TA[2][7] = 12
+    TA[3][5] = 6
 
     # initialise board
     print("stating AI chess... ")
     aichess = Aichess(TA, True)
     print("blackstate")
     print(aichess.currentStateB)
+
 
     print("whitestate")
     print(aichess.currentStateW)
@@ -521,4 +546,5 @@ if __name__ == "__main__":
 
     # Run exercise 1
     playerTurn = True  # Whites start first = True
+    aichess.depthMax = 4
     aichess.minimaxGame(4, 4, playerTurn)
