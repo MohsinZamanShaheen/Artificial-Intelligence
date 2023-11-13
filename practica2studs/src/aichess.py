@@ -336,10 +336,9 @@ class Aichess():
             currentState = self.getCurrentState()
             self.newBoardSim(currentState)
             if playerTurn:
-                movimiento = self.minimax(currentState, depthWhite, playerTurn)
-
+                movimiento = self.minimax(currentState, depthWhite, depthWhite, playerTurn)
             else:
-                movimiento = self.minimax(currentState, depthBlack, playerTurn)
+                movimiento = self.minimax(currentState, depthBlack, depthBlack, playerTurn)
 
             if (movimiento is None):
                 if(playerTurn == False):
@@ -409,7 +408,8 @@ class Aichess():
 
         return True
 
-    def minimax(self, state, depth, playerTurn):
+    def minimax(self, state, depth, depthColor, playerTurn):
+
         if depth == 0 or self.isCheckMate(state):
             return self.heuristica(state, playerTurn)
 
@@ -428,7 +428,7 @@ class Aichess():
 
                 if not self.isWatchedWk(successor):
                     self.newBoardSim(state)
-                    bestValue = self.minimax(successor, depth - 1, False)
+                    bestValue = self.minimax(successor, depth - 1, depthColor, False)
                     if bestValue > currBestValue:
                         currBestValue = bestValue
                         maxState = successor
@@ -444,12 +444,12 @@ class Aichess():
 
                 if not self.isWatchedBk(successor):
                     self.newBoardSim(state)
-                    bestValue = self.minimax(successor, depth - 1, True)
+                    bestValue = self.minimax(successor, depth - 1, depthColor, True)
                     if bestValue < currBestValue:
                         currBestValue = bestValue
                         maxState = successor
 
-        if depth == self.depthMax:
+        if depth == depthColor:
             return maxState
 
         return currBestValue
@@ -517,20 +517,14 @@ if __name__ == "__main__":
     TA = np.zeros((8, 8))
 
     # Configuració inicial del taulell
-    #TA[7][0] = 2
-    #TA[7][4] = 6
-    #TA[0][7] = 8
-    #TA[0][4] = 12
+    TA[7][0] = 2
+    TA[7][4] = 6
+    TA[0][7] = 8
+    TA[0][4] = 12
 
 
 
-    #TA[2][4] = 2
-    #TA[1][6] = 12
-    #TA[7][4] = 6
 
-    TA[7][6] = 2
-    TA[2][7] = 12
-    TA[3][5] = 6
 
     # initialise board
     print("stating AI chess... ")
@@ -546,5 +540,5 @@ if __name__ == "__main__":
 
     # Run exercise 1
     playerTurn = True  # Whites start first = True
-    aichess.depthMax = 4
-    aichess.minimaxGame(4, 4, playerTurn)
+
+    aichess.minimaxGame(3, 2, playerTurn)
