@@ -328,6 +328,7 @@ class Aichess():
 
         return value
 
+    # Helper method that checks if a black rook can be eliminated
     def eliminarBlack(self, blackState, brState, successor):
         self.newBoardSim(blackState)
         newBlackState = blackState.copy()
@@ -340,6 +341,7 @@ class Aichess():
                     newBlackState.remove(brState)
         return newBlackState
 
+    # Helper method that checks if a white rook can be eliminated
     def eliminarWhite(self, whiteState, wrState, successor):
         self.newBoardSim(whiteState)
         newWhiteState = whiteState.copy()
@@ -352,6 +354,7 @@ class Aichess():
                     newWhiteState.remove(wrState)
         return newWhiteState
 
+    # Method to check checkMate cases to stop the algorithm
     def isCheckMate(self, state):
         self.newBoardSim(state)
         brState = self.getPieceState(state, 8)
@@ -383,6 +386,7 @@ class Aichess():
             currentState = self.getCurrentState()
             #self.newBoardSim(currentState)
 
+            # check player turn
             if playerTurn:
                 movimiento = self.minimax(currentState, depthWhite, depthWhite, playerTurn)
             else:
@@ -395,11 +399,13 @@ class Aichess():
                     color = "NEGRAS"
                 return print("JAQUE MATE, GANAN LAS ", color)
 
+            #in case the pieces are repeting movements, stop 
             if (self.isVisitedSituation(playerTurn, self.copyState(movimiento))):
                 return print("JUEGO EN TABLAS")
 
             self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
 
+            # make best movement and print on board
             piece_moved = self.getMovement(currentState, self.copyState(movimiento))
             self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
             self.chess.board.print_board()
@@ -408,10 +414,14 @@ class Aichess():
 
     def minimax(self, state, depth, depthColor, playerTurn):
 
+        # check if it is ternimal node or checkmate scenario to return static heuristic value
         if depth == 0 or self.isCheckMate(state):
             return self.heuristica(state, playerTurn)
         
+        # variable that will contain the best movement to make
         maxState = None
+
+        # Maximizing player
         if playerTurn:
             currBestValue = float('-inf')
 
@@ -424,12 +434,16 @@ class Aichess():
                 successor += self.eliminarBlack(blackState, brState, successor)
 
                 if not self.isWatchedWk(successor):
-                    self.newBoardSim(state)
+                    #self.newBoardSim(state)
                     bestValue = self.minimax(successor, depth - 1, depthColor, False)
+                    # check for best value and best movement if any
                     if bestValue > currBestValue:
                         currBestValue = bestValue
                         maxState = successor
+
+        # Minimizing player
         else:
+            # initialize minimizer
             currBestValue = float('inf')
             whiteState = self.getWhiteState(state)
             blackState = self.getBlackState(state)
@@ -440,12 +454,16 @@ class Aichess():
                 successor += self.eliminarWhite(whiteState, wrState, successor)
 
                 if not self.isWatchedBk(successor):
-                    self.newBoardSim(state)
+                    #self.newBoardSim(state)
+                    # Recursively call minimax with the successor state
                     bestValue = self.minimax(successor, depth - 1, depthColor, True)
+
+                    # Update the best value and maxState if a better successor is found
                     if bestValue < currBestValue:
                         currBestValue = bestValue
                         maxState = successor
 
+        # if back to top level, return the best movement
         if depth == depthColor:
             return maxState
 
@@ -457,7 +475,6 @@ class Aichess():
 
 
 # --------------------- PODA ALPHA BETA START ---------------------- #
-
 
     def alphaBetaPoda(self, depthWhite, depthBlack, playerTurn, alpha=-float('inf'), beta=float('inf')):
 
@@ -485,6 +502,7 @@ class Aichess():
             
             self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
 
+            # make best movement and print on board
             piece_moved = self.getMovement(currentState, self.copyState(movimiento))
             self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
             self.chess.board.print_board()
@@ -492,11 +510,14 @@ class Aichess():
 
 
     def minimaxalfabeta(self, state, depth, depthColor, playerTurn, alpha, beta):
-        
+         # check if it is ternimal node or checkmate scenario to return static heuristic value
         if depth == 0 or self.isCheckMate(state):
             return self.heuristica(state, playerTurn)
-
+        
+        # variable that will contain the best movement to make
         maxState = None
+
+        # Maximizing player
         if playerTurn:
             currBestValue = float('-inf')
 
@@ -509,16 +530,23 @@ class Aichess():
                 successor += self.eliminarBlack(blackState, brState, successor)
 
                 if not self.isWatchedWk(successor):
-                    self.newBoardSim(state)
+                    #self.newBoardSim(state)
+                    # Recursively call with the successor state
                     bestValue = self.minimaxalfabeta(successor, depth - 1, depthColor, False, alpha, beta)
+
+                    # Update the best value and maxState if a better successor is found
                     if bestValue > currBestValue:
                         currBestValue = bestValue
                         maxState = successor
 
+                    # Update alpha (the best value for the maximizing player)
                     alpha = max(alpha, currBestValue)
 
+                    # Check if we can prune the search
                     if beta <= alpha:
                         break
+
+        # Minimizing player
         else:
             currBestValue = float('inf')
             whiteState = self.getWhiteState(state)
@@ -530,17 +558,25 @@ class Aichess():
                 successor += self.eliminarWhite(whiteState, wrState, successor)
 
                 if not self.isWatchedBk(successor):
-                    self.newBoardSim(state)
+                    #self.newBoardSim(state)
+                    # Recursively call with the successor state
                     bestValue = self.minimaxalfabeta(successor, depth - 1, depthColor, True, alpha, beta)
+
+                    # Update the best value and maxState if a better successor is found
                     if bestValue < currBestValue:
                         currBestValue = bestValue
                         maxState = successor
-
+                    # Update beta which is best for minimizing player
                     beta = min(beta, currBestValue)
 
                     if beta <= alpha:
                         break
-
+        '''
+        if maxState == None:
+            if self.isCheckMate(state):
+                return self.heuristica(state, playerTurn)
+        '''
+        # if back to top level, return the best movement
         if depth == depthColor:
             return maxState
 
@@ -565,30 +601,31 @@ class Aichess():
                 movimiento = self.minimaxExpect(currentState, depthBlack, depthBlack, playerTurn)
             
             print("MOVIMIENTO: ", movimiento)
-            if (movimiento is None):
+            if (movimiento is None):# quan ja no hi ha mes moviments a fer
                 if(playerTurn == False):
                     color = "BLANCAS"
                 else:
                     color = "NEGRAS"
                 return print("JAQUE MATE, GANAN LAS ", color)
 
-            if (self.isVisitedSituation(playerTurn, self.copyState(movimiento))):
+            if (self.isVisitedSituation(playerTurn, movimiento)):
                 return print("JUEGO EN TABLAS")
             
-            self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
-
-            piece_moved = self.getMovement(currentState, self.copyState(movimiento))
+            self.listVisitedSituations.append((playerTurn, movimiento))
+            # make best movement and print on board
+            piece_moved = self.getMovement(currentState, movimiento)
             self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
             self.chess.board.print_board()
             playerTurn = not playerTurn
 
 
     def minimaxExpect(self, state, depth, depthColor, playerTurn):
-
+        # check if it is ternimal node or checkmate scenario to return static heuristic value
         if depth == 0 or self.isCheckMate(state):
             return self.heuristica(state, playerTurn)
         
         maxState = None
+
         if playerTurn:
             currBestValue = float('-inf')
 
@@ -601,14 +638,13 @@ class Aichess():
                 successor += self.eliminarBlack(blackState, brState, successor)
 
                 if not self.isWatchedWk(successor):
-                    self.newBoardSim(state)
+                    #self.newBoardSim(state)
                     bestValue = self.minimaxExpect(successor, depth - 1, depthColor, False)
-                    if bestValue > currBestValue:
+                    if bestValue >= currBestValue:
                         currBestValue = bestValue
-                        maxState = successor 
+                        maxState = successor
         
         else:
-
             possibleValues = []
             whiteState = self.getWhiteState(state)
             blackState = self.getBlackState(state)
@@ -619,21 +655,27 @@ class Aichess():
                 successor += self.eliminarWhite(whiteState, wrState, successor)
 
                 if not self.isWatchedBk(successor):
-                    self.newBoardSim(state)
-                    value = self.minimaxExpect(successor, depth - 1, depthColor, True)
-                    possibleValues.append(value)
+                    #self.newBoardSim(state)
+                    bestValue = self.minimaxExpect(successor, depth - 1, depthColor, True)
 
+                    # add value to the list
+                    if bestValue is not None:
+                        possibleValues.append(bestValue)
+                        maxState = successor
+            # if list have values, calculate the expected value
             if len(possibleValues) > 0:
-                currBestValue = self.calculateValue(possibleValues)
-        
+                bestValue = self.calculateValue(possibleValues)
+            
+            # otherwise return a minimum value
+            else:
+                bestValue = float('-inf')
+
         if depth == depthColor:
             return maxState
-
-        return currBestValue
+            
+        return bestValue
 
 # ---------------------- EXPECTIMAX END  --------------------------- #
-
-
 
     def mitjana(self, values):
         sum = 0
@@ -678,6 +720,69 @@ class Aichess():
             sum += positiveValue
 
         return esperanca / sum
+    
+
+    def minimaxalphabetaGame(self, depthWhite, depthBlack, playerTurn, alpha=-float('inf'), beta=float('inf')):
+        currentState = self.getCurrentState()
+        print("Initial state of all pieces: ", currentState)
+
+        while not self.isCheckMate(currentState):
+            currentState = self.getCurrentState()
+            #self.newBoardSim(currentState)
+
+            if playerTurn:
+                movimiento = self.minimax(currentState, depthWhite, depthWhite, playerTurn)
+            else:
+                movimiento = self.minimaxalfabeta(currentState, depthBlack, depthBlack, playerTurn, alpha, beta)
+
+            if (movimiento is None):
+                if(playerTurn == False):
+                    color = "BLANCAS"
+                else:
+                    color = "NEGRAS"
+                return print("JAQUE MATE, GANAN LAS ", color)
+
+            if (self.isVisitedSituation(playerTurn, self.copyState(movimiento))):
+                return print("JUEGO EN TABLAS")
+
+            self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
+
+            piece_moved = self.getMovement(currentState, self.copyState(movimiento))
+            self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
+            self.chess.board.print_board()
+            playerTurn = not playerTurn
+
+
+    def expectimaxAlphabetaGame(self, depthWhite, depthBlack, playerTurn, alpha=-float('inf'), beta=float('inf')):
+        currentState = self.getCurrentState()
+        print("Initial state of all pieces: ", currentState)
+
+        while not self.isCheckMate(currentState):
+            currentState = self.getCurrentState()
+            #self.newBoardSim(currentState)
+
+            if playerTurn:
+                movimiento = self.minimaxExpect(currentState, depthWhite, depthWhite, playerTurn)
+            else:
+                movimiento = self.minimaxalfabeta(currentState, depthBlack, depthBlack, playerTurn, alpha, beta)
+
+            if (movimiento is None):
+                if(playerTurn == False):
+                    color = "BLANCAS"
+                else:
+                    color = "NEGRAS"
+                return print("JAQUE MATE, GANAN LAS ", color)
+
+            if (self.isVisitedSituation(playerTurn, self.copyState(movimiento))):
+                return print("JUEGO EN TABLAS")
+
+            self.listVisitedSituations.append((playerTurn, self.copyState(movimiento)))
+
+            piece_moved = self.getMovement(currentState, self.copyState(movimiento))
+            self.chess.move((piece_moved[0][0], piece_moved[0][1]), (piece_moved[1][0], piece_moved[1][1]))
+            self.chess.board.print_board()
+            playerTurn = not playerTurn
+
 
 
 if __name__ == "__main__":
@@ -693,25 +798,33 @@ if __name__ == "__main__":
     TA[0][7] = 8
     TA[0][4] = 12
 
-
-
-
-
     # initialise board
     print("stating AI chess... ")
     aichess = Aichess(TA, True)
     print("blackstate")
     print(aichess.currentStateB)
 
-
     print("whitestate")
     print(aichess.currentStateW)
     print("printing board")
     aichess.chess.boardSim.print_board()
 
+    # Exercises
+
     # Run exercise 1
     playerTurn = True  # Whites start first = True
 
-    #aichess.minimaxGame(4, 4, playerTurn)
-    #aichess.alphaBetaPoda(5,5, playerTurn)
-    aichess.expectimax(3,3,playerTurn)
+    # Exercise 1:To execute minimax for both players, uncomment the next line
+    aichess.minimaxGame(4, 4, playerTurn)
+
+    #To execute alpha beta pruning on both whites and blacks, uncomment the next line 
+    #aichess.alphaBetaPoda(4,4, playerTurn)
+
+    #To execute expectimax on both whites and blacks, uncomment the next line
+    #aichess.expectimax(4,4,playerTurn)
+
+    #Exercise 3: To execute Alpha beta on blacks and minimax on whites, uncomment the next line.
+    #aichess.minimaxalphabetaGame(4, 4, playerTurn)
+
+    #Exercise 5: To execute expectimax on whites and alpha-beta on blacks, uncomment the next line
+    #aichess.expectimaxAlphabetaGame(3, 3, playerTurn)
