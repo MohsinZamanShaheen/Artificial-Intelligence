@@ -19,6 +19,8 @@ class Scenario():
         self.goal_state = self.goal_position[0] * self.num_columns + self.goal_position[1]
         self.blocked_position = (1, 1)
         self.blocked_state = self.blocked_position[0] * self.num_columns + self.blocked_position[1]
+
+        self.blocked_states = [self.blocked_state]
         if apartado == 'everywhere':
             self.rewards = np.full((self.num_states, self.num_actions),
                                    -1)  # Todas las acciones tienen una recompensa de -1
@@ -77,22 +79,41 @@ class Scenario():
         plt.show()
 
     def select_action(self, state):
-        # Seleccionar la acción con mayor valor en la matriz Q para el estado dado
-        return np.argmax(self.Q[state, :])
+        rand_num = np.random.rand()
+        epsilon = 0.1
+
+        if rand_num > epsilon:
+            # Elegir una acción aleatoria, excluyendo acciones inválidas
+            valid_actions = [a for a in range(self.num_actions) if self.is_action_valid(state, a)]
+            return np.random.choice(valid_actions)
+        else:
+            # Elegir la acción con el valor máximo en la matriz Q para el estado dado, excluyendo acciones inválidas
+            valid_actions = [a for a in range(self.num_actions) if self.is_action_valid(state, a)]
+            return np.argmax(self.Q[state, valid_actions])
 
     def move_action(self, current_state, action):
+        next_state = None
+
+        # Calcula el siguiente estado candidato
         if action == 0 and current_state >= self.num_columns:
-            return current_state - self.num_columns
+            next_state = current_state - self.num_columns
         elif action == 1 and current_state < self.num_states - self.num_columns:
-            return current_state + self.num_columns
+            next_state = current_state + self.num_columns
         elif action == 2 and current_state % self.num_columns != 0:
-            return current_state - 1
+            next_state = current_state - 1
         elif action == 3 and (current_state + 1) % self.num_columns != 0:
-            return current_state + 1
+            next_state = current_state + 1
         else:
-            return current_state
+            next_state = current_state
+
+        return next_state
+
+    def is_action_valid(self, state, action):
+        next_state = self.move_action(state, action)
+        return 0 <= next_state < self.num_states and next_state not in self.blocked_states
 
     def q_learning(self):
+        actions_taken = []
         print_q_interval = self.num_episodes / 2
         for episode in range(self.num_episodes):
 
@@ -104,13 +125,14 @@ class Scenario():
                 # Seleccionar una acción
                 action = self.select_action(current_state)
 
-                # Obtener la recompensa para la acción tomada
-                reward = self.rewards[current_state, action]
+                actions_taken.append((current_state, action))
 
                 # Moverse al siguiente estado
                 next_state = self.move_action(current_state, action)
 
 
+                # Obtener la recompensa para la acción tomada
+                reward = self.rewards[current_state, action]
 
                 # Actualizar la matriz Q usando la ecuación de Q-learning
                 self.Q[current_state, action] = self.Q[current_state, action] + self.alpha * (
@@ -137,7 +159,7 @@ class Scenario():
             action = self.select_action(current_state)
 
             next_state = self.move_action(current_state, action)
-            
+
             # Convertir estados a coordenadas (filas, columnas)
             current_coords = (current_state // self.num_columns, current_state % self.num_columns)
             next_coords = (next_state // self.num_columns, next_state % self.num_columns)
@@ -169,24 +191,29 @@ class Scenario():
             current_state = self.num_columns * (self.num_rows - 1)  # Start position
 
             while current_state != self.goal_state:  # Mientras no estemos en el estado final
-                # Seleccionar una acción
-                if np.random.rand() < 0.99:
-                    action = self.select_action(current_state)
-                else:
-                    action = np.random.randint(self.num_actions)
+                action_failed = False
 
-                # Obtener la recompensa para la acción tomada
-                reward = self.rewards[current_state, action]
+                action = self.select_action(current_state)
 
-                # Moverse al siguiente estado
-                next_state = self.move_action(current_state, action)
+                # Verificar si la acción es fallida
+                if np.random.rand() < 0.01:
+                    print("VA BORRACHO, NO VALID")
+                    action_failed = True
 
-                # Actualizar la matriz Q usando la ecuación de Q-learning
-                self.Q[current_state, action] = self.Q[current_state, action] + self.alpha * (
-                        reward + self.gamma * np.max(self.Q[next_state, :]) - self.Q[current_state, action])
+                # Si la acción no es fallida, continuar con la ejecución normal
+                if not action_failed:
+                    # Obtener la recompensa para la acción tomada
+                    reward = self.rewards[current_state, action]
 
-                # Actualizar el estado actual al siguiente estado
-                current_state = next_state
+                    # Moverse al siguiente estado
+                    next_state = self.move_action(current_state, action)
+
+                    # Actualizar la matriz Q usando la ecuación de Q-learning
+                    self.Q[current_state, action] = self.Q[current_state, action] + self.alpha * (
+                            reward + self.gamma * np.max(self.Q[next_state, :]) - self.Q[current_state, action])
+
+                    # Actualizar el estado actual al siguiente estado
+                    current_state = next_state
 
             # Imprimir la matriz Q en intervalos específicos
             if episode == print_q_interval or episode == 1:
@@ -237,8 +264,8 @@ if __name__ == "__main__":
 
     #Si quereis que el agente tenga total eleccion de sus acciones, dejar descomentado = False,
     #En caso contrario, dejar descomentado el =True
-    #drunken_sailor = False
-    drunken_sailor = True
+    drunken_sailor = False
+    #drunken_sailor = True
     scenario = Scenario(apartado)
     print("Q-table (Initial):")
     print(scenario.Q)
