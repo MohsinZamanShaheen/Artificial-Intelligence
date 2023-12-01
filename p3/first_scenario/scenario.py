@@ -7,254 +7,244 @@ from itertools import permutations
 
 class Scenario():
     def __init__(self, apartado):
-        self.num_rows = 3
-        self.num_columns = 4
-        self.num_states = self.num_rows * self.num_columns
-        self.num_actions = 4
-        self.Q = np.zeros((self.num_states, self.num_actions))
+
+
+        self.num_filas = 3
+        self.num_columnas = 4
+        self.num_acciones = 4
+        self.Q = np.zeros((self.num_filas, self.num_columnas, self.num_acciones))
+
+
         self.gamma = 0  # Factor de descuento
         self.alpha = 0 # Tasa de aprendizaje
-        self.start_position = (2, 0)
-        self.goal_position = (0, 3)
-        self.goal_state = self.goal_position[0] * self.num_columns + self.goal_position[1]
-        self.blocked_position = (1, 1)
-        self.blocked_state = self.blocked_position[0] * self.num_columns + self.blocked_position[1]
-
-        self.blocked_states = [self.blocked_state]
-        if apartado == 'everywhere':
-            self.rewards = np.full((self.num_states, self.num_actions),
-                                   -1)  # Todas las acciones tienen una recompensa de -1
-            # La acción que lleva a la casilla bloqueada tiene una recompensa de -10
-            self.rewards[self.blocked_state, :] = -10
-            # La acción que lleva al estado final tiene una recompensa de 100
-            self.rewards[self.goal_state, :] = 100
-
-        elif apartado == 'custom_rewards':
-            self.startReward = -5
-            self.blockedReward = -10
-            self.goalReward = 100
-            self.rewards = np.zeros((self.num_states, self.num_actions))
-
-            # Asignar manualmente las recompensas según la estructura proporcionada
-            self.rewards[0, :] = [-3, -3, -3, -3]
-            self.rewards[1, :] = [-2, -2, -2, -2]
-            self.rewards[2, :] = [-1, -1, -1, -1]
-            self.rewards[3, :] = [self.goalReward, self.goalReward, self.goalReward, self.goalReward]
-            self.rewards[4, :] = [-4, -4, -4, -4]
-            self.rewards[5, :] = [self.blockedReward, self.blockedReward, self.blockedReward, self.blockedReward]
-            self.rewards[6, :] = [-2, -2, -2, -2]
-            self.rewards[7, :] = [-1, -1, -1, -1]
-            self.rewards[8, :] = [self.startReward, self.startReward, self.startReward, self.startReward]
-            self.rewards[9, :] = [-4, -4, -4, -4]
-            self.rewards[10, :] = [-3, -3, -3, -3]
-            self.rewards[11, :] = [-2, -2, -2, -2]
+        self.num_episodios = 1000
+        self.estado_bloqueado = (1, 1)
+        self.estado_inicio = (0, 0)
+        self.estado_final = (2, 3)
+        self.epsilon = 0.1  # Exploración inicial
+        if apartado == 'custom_rewards':
+            # Inicializar recompensas personalizadas
+            self.recompensas = np.array([[-5, -4, -3, -2],
+                                         [-4, 0, -2, -1],
+                                         [-3, -2, -1, 100]])
+        elif apartado == 'everywhere':
+            # Utilizar recompensas en todas partes por defecto
+            self.recompensas = -1 * np.ones((self.num_filas, self.num_columnas))
+            # Establecer 100 en el estado objetivo
+            self.recompensas[self.estado_final[0], self.estado_final[1]] = 100
 
 
-        self.num_episodes = 1000
+    def seleccionar_accion(self, q_values, estado, epsilon=0.1):
+        acciones_posibles = [a for a in range(self.num_acciones) if
+                             self.estado_siguiente(estado, a) != self.estado_bloqueado]
 
-    def visualize_board(self, optimal_path_coords):
-        board = np.zeros((self.num_rows, self.num_columns), dtype=int)
+        if np.random.rand() < epsilon:
+            return np.random.choice(acciones_posibles)
+        else:
+            return np.argmax(q_values[estado][acciones_posibles])
+
+    # Función para obtener el próximo estado dado un estado y una acción
+    def estado_siguiente(self, estado, accion):
+        next_state = None
+        if accion == 0:  # Abajo
+            next_state = (max(estado[0] - 1, 0), estado[1])
+        elif accion == 1:  # Arriba
+            next_state = (min(estado[0] + 1, self.num_filas - 1), estado[1])
+        elif accion == 2:  # Izquierda
+            next_state = (estado[0], max(estado[1] - 1, 0))
+        elif accion == 3:  # Derecha
+            next_state = (estado[0], min(estado[1] + 1, self.num_columnas - 1))
+
+        # Verificar si el próximo estado es el estado bloqueado y ajustar
+        if next_state == self.estado_bloqueado:
+            return estado
+        else:
+            return next_state
+
+    def printAction(self, action, current_coords, next_coords):
+        # Imprimir la acción
+        if action == 0:
+            print(current_coords, " (Abajo) --> ", next_coords)
+        elif action == 1:
+            print(current_coords, " (Arriba) --> ", next_coords)
+        elif action == 2:
+            print(current_coords, " (Izquierda) --> ", next_coords)
+        elif action == 3:
+            print(current_coords, " (Derecha) --> ", next_coords)
+
+    def visualize_board(self, optimal_path_coords, blocked_position, start_position, goal_position, num_rows, num_columns):
+        board = np.zeros((num_rows, num_columns), dtype=int)
 
         for coord in optimal_path_coords:
-            board[coord[0], coord[1]] = 1
+            inverted_coord = (num_rows - 1 - coord[0], coord[1])
+            board[inverted_coord[0], inverted_coord[1]] = 1
 
-        board[self.blocked_position[0], self.blocked_position[1]] = -1  # Marcamos la casilla bloqueada en rojo
-        plt.text(self.blocked_position[1], self.blocked_position[0], "BLOCKED", ha='center', va='center', fontsize=8)
+        inverted_blocked_position = (num_rows - 1 - blocked_position[0], blocked_position[1])
+        board[inverted_blocked_position[0], inverted_blocked_position[1]] = -1  # Marcamos la casilla bloqueada en rojo
+        plt.text(inverted_blocked_position[1], inverted_blocked_position[0], "BLOCKED", ha='center', va='center',
+                 fontsize=8)
 
-        board[self.start_position[0], self.start_position[1]] = 2  # Etiquetamos la posición de inicio
-        plt.text(self.start_position[1], self.start_position[0], "START", ha='center', va='center', fontsize=8)
+        inverted_start_position = (num_rows - 1 - start_position[0], start_position[1])
+        board[inverted_start_position[0], inverted_start_position[1]] = 2  # Etiquetamos la posición de inicio
+        plt.text(inverted_start_position[1], inverted_start_position[0], "START", ha='center', va='center', fontsize=8)
 
-        board[self.goal_position[0], self.goal_position[1]] = 3  # Etiquetamos la posición objetivo
-        plt.text(self.goal_position[1], self.goal_position[0], "GOAL", ha='center', va='center', fontsize=8)
-
-
+        inverted_goal_position = (num_rows - 1 - goal_position[0], goal_position[1])
+        board[inverted_goal_position[0], inverted_goal_position[1]] = 3  # Etiquetamos la posición objetivo
+        plt.text(inverted_goal_position[1], inverted_goal_position[0], "GOAL", ha='center', va='center', fontsize=8)
 
         plt.imshow(board, cmap='RdYlBu', origin='upper', interpolation='none')
-        x_ticks_labels = [str(label) for label in range(1, self.num_columns + 1)]
-        y_ticks_labels = [str(label) for label in range(self.num_rows, 0, -1)]
+        x_ticks_labels = [str(label) for label in range(1, num_columns + 1)]
+        y_ticks_labels = [str(label) for label in range(num_rows, 0, -1)]  # Invertir las etiquetas del eje y
 
-        plt.xticks(range(self.num_columns), x_ticks_labels)
-        plt.yticks(range(self.num_rows), y_ticks_labels)
+        plt.xticks(range(num_columns), x_ticks_labels)
+        plt.yticks(range(num_rows), y_ticks_labels)
         plt.title('Path Q-Learning')
         plt.show()
 
-    def select_action(self, state):
-        rand_num = np.random.rand()
-        epsilon = 0.1
+    def visualize_board_drunken(self, optimal_path_coords, blocked_position, start_position, goal_position, num_rows,
+                                num_columns):
+        board = np.zeros((num_rows, num_columns), dtype=int)
 
-        if rand_num > epsilon:
-            # Elegir una acción aleatoria, excluyendo acciones inválidas
-            valid_actions = [a for a in range(self.num_actions) if self.is_action_valid(state, a)]
-            return np.random.choice(valid_actions)
-        else:
-            # Elegir la acción con el valor máximo en la matriz Q para el estado dado, excluyendo acciones inválidas
-            valid_actions = [a for a in range(self.num_actions) if self.is_action_valid(state, a)]
-            return np.argmax(self.Q[state, valid_actions])
+        for coord in optimal_path_coords:
+            if coord is not None:
+                inverted_coord = (num_rows - 1 - coord[0], coord[1])
+                board[inverted_coord[0], inverted_coord[1]] = 1
 
-    def move_action(self, current_state, action):
-        next_state = None
+        if blocked_position is not None:
+            inverted_blocked_position = (num_rows - 1 - blocked_position[0], blocked_position[1])
+            board[inverted_blocked_position[0], inverted_blocked_position[
+                1]] = -1  # Marcamos la casilla bloqueada en rojo
+            plt.text(inverted_blocked_position[1], inverted_blocked_position[0], "BLOCKED", ha='center', va='center',
+                     fontsize=8)
 
-        # Calcula el siguiente estado candidato
-        if action == 0 and current_state >= self.num_columns:
-            next_state = current_state - self.num_columns
-        elif action == 1 and current_state < self.num_states - self.num_columns:
-            next_state = current_state + self.num_columns
-        elif action == 2 and current_state % self.num_columns != 0:
-            next_state = current_state - 1
-        elif action == 3 and (current_state + 1) % self.num_columns != 0:
-            next_state = current_state + 1
-        else:
-            next_state = current_state
+        if start_position is not None:
+            inverted_start_position = (num_rows - 1 - start_position[0], start_position[1])
+            board[inverted_start_position[0], inverted_start_position[1]] = 2  # Etiquetamos la posición de inicio
+            plt.text(inverted_start_position[1], inverted_start_position[0], "START", ha='center', va='center',
+                     fontsize=8)
 
-        return next_state
+        if goal_position is not None:
+            inverted_goal_position = (num_rows - 1 - goal_position[0], goal_position[1])
+            board[inverted_goal_position[0], inverted_goal_position[1]] = 3  # Etiquetamos la posición objetivo
+            plt.text(inverted_goal_position[1], inverted_goal_position[0], "GOAL", ha='center', va='center', fontsize=8)
 
-    def is_action_valid(self, state, action):
-        next_state = self.move_action(state, action)
-        return 0 <= next_state < self.num_states and next_state not in self.blocked_states
+        plt.imshow(board, cmap='RdYlBu', origin='upper', interpolation='none')
+        x_ticks_labels = [str(label) for label in range(1, num_columns + 1)]
+        y_ticks_labels = [str(label) for label in range(num_rows, 0, -1)]  # Invertir las etiquetas del eje y
+
+        plt.xticks(range(num_columns), x_ticks_labels)
+        plt.yticks(range(num_rows), y_ticks_labels)
+        plt.title('Path Q-Learning - Drunken Sailor')
+        plt.show()
 
     def q_learning(self):
-        actions_taken = []
-        print_q_interval = self.num_episodes / 2
-        for episode in range(self.num_episodes):
+        for episodio in range(self.num_episodios):
+            estado_actual = (0, 0)  # Estado inicial
+            acciones_realizadas = []  # Lista para almacenar las acciones del episodio actual
+            estados = []
 
-            # Inicializar el estado inicial
-            current_state = self.num_columns * (self.num_rows - 1)  # Start position
+            while estado_actual != self.estado_final:
+                # Elegir una acción
+                accion = self.seleccionar_accion(self.Q, estado_actual, self.epsilon)
+                estados.append(estado_actual)
 
-
-            while current_state != self.goal_state:  # Mientras no estemos en el estado final
-                # Seleccionar una acción
-                action = self.select_action(current_state)
-
-                actions_taken.append((current_state, action))
-
-                # Moverse al siguiente estado
-                next_state = self.move_action(current_state, action)
+                # Tomar la acción y obtener la recompensa
+                estado_siguiente_val = self.estado_siguiente(estado_actual, accion)
+                if estado_siguiente_val != self.estado_bloqueado:
+                    recompensa = self.recompensas[estado_actual[0], estado_actual[1]]
 
 
-                # Obtener la recompensa para la acción tomada
-                reward = self.rewards[current_state, action]
+                # Actualizar la tabla Q usando la ecuación de Q-learning
+                self.Q[estado_actual][accion] += self.alpha * (
+                            recompensa + self.gamma * np.max(self.Q[estado_siguiente_val]) - self.Q[estado_actual][accion])
 
-                # Actualizar la matriz Q usando la ecuación de Q-learning
-                self.Q[current_state, action] = self.Q[current_state, action] + self.alpha * (
-                            reward + self.gamma * np.max(self.Q[next_state, :]) - self.Q[current_state, action])
+                acciones_realizadas.append((accion, estado_actual, estado_siguiente_val))  # Almacenar la acción tomada
+                # Actualizar el estado actual
+                estado_actual = estado_siguiente_val
 
-                # Actualizar el estado actual al siguiente estado
-                current_state = next_state
+            # Reducir la exploración a medida que avanzan los episodios
+            self.epsilon = max(0.1, self.epsilon * 0.99)
 
-            # Imprimir la matriz Q en intervalos específicos
-            if episode == print_q_interval or episode == 1:
-                    print(f"\nQ-table (Episode {episode}):")
-                    print(self.Q)
+            # Imprimir las acciones realizadas en el episodio actual
+            if episodio == self.num_episodios - 1:
+                print(f"\nAcciones realizadas en el episodio {episodio + 1}:")
+                for accion, current, next_coords in acciones_realizadas:
+                    self.printAction(accion, current, next_coords)
+                # Visualizar el tablero con el camino óptimo
+                self.visualize_board(estados, self.estado_bloqueado, self.estado_inicio, self.estado_final,
+                                     self.num_filas, self.num_columnas)  # Ajustado para comenzar en (1, 1)
 
-        # Imprimir la matriz Q
-        print("Q-table Final:")
+        # Imprimir la tabla Q aprendida
+        print("\nTabla Q aprendida:")
         print(self.Q)
 
-        # Imprimir el camino óptimo
-        optimal_path = [self.num_columns * (self.num_rows - 1)]  # Start position
-        current_state = optimal_path[0]
+        return 0
 
-        print("ACTIONS:")
-        while current_state != self.goal_state:
-            action = self.select_action(current_state)
+    def seleccionar_accion_drunken_sailor(self, q_values, estado, epsilon=0.1, prob_fallo=0.01):
+        # Introducir el 1% de probabilidad de que no se realice ningún movimiento
+        if np.random.rand() < prob_fallo:
+            return None
+        else:
+            if np.random.rand() < epsilon:
+                # Seleccionar una acción aleatoria excluyendo acciones que lleven al estado bloqueado
+                acciones_posibles = [a for a in range(self.num_acciones) if
+                                     self.estado_siguiente(estado, a) != self.estado_bloqueado]
+                return np.random.choice(acciones_posibles)
+            else:
+                # Seleccionar la acción que maximiza Q, excluyendo acciones que lleven al estado bloqueado
+                acciones_posibles = [a for a in range(self.num_acciones) if
+                                     self.estado_siguiente(estado, a) != self.estado_bloqueado]
+                return np.argmax(q_values[estado][acciones_posibles])
 
-            next_state = self.move_action(current_state, action)
-
-            # Convertir estados a coordenadas (filas, columnas)
-            current_coords = (current_state // self.num_columns, current_state % self.num_columns)
-            next_coords = (next_state // self.num_columns, next_state % self.num_columns)
-
-            # Imprimir la acción
-            if action == 0:
-                print(current_coords, " (Arriba) --> ", next_coords)
-            elif action == 1:
-                print(current_coords, " (Abajo) --> ", next_coords)
-            elif action == 2:
-                print(current_coords, " (Izquierda) --> ", next_coords)
-            elif action == 3:
-                print(current_coords, " (Derecha) --> ", next_coords)
-
-            optimal_path.append(next_state)
-            current_state = next_state
-
-        # Convertir estados a coordenadas (filas, columnas) para el estado final
-        optimal_path_coords = [(state // self.num_columns, state % self.num_columns) for state in optimal_path]
-
-
-        return optimal_path_coords
-
+    # Modificar la función q_learning_drunken_sailor para usar la nueva función de selección
     def q_learning_drunken_sailor(self):
-        print_q_interval = self.num_episodes / 2
-        for episode in range(self.num_episodes):
+        for episodio in range(self.num_episodios):
+            estado_actual = (0, 0)  # Estado inicial
+            acciones_realizadas = []  # Lista para almacenar las acciones del episodio actual
+            estados = []
 
-            # Inicializar el estado inicial
-            current_state = self.num_columns * (self.num_rows - 1)  # Start position
+            while estado_actual != self.estado_final:
+                # Elegir una acción
+                accion = self.seleccionar_accion_drunken_sailor(self.Q, estado_actual, self.epsilon)
 
-            while current_state != self.goal_state:  # Mientras no estemos en el estado final
-                action_failed = False
+                if accion is not None:
+                    # Tomar la acción y obtener la recompensa
+                    estado_siguiente_val = self.estado_siguiente(estado_actual, accion)
+                    if estado_siguiente_val != self.estado_bloqueado:
+                        recompensa = self.recompensas[estado_actual[0], estado_actual[1]]
 
-                action = self.select_action(current_state)
+                    # Actualizar la tabla Q usando la ecuación de Q-learning
+                    self.Q[estado_actual][accion] += self.alpha * (
+                            recompensa + self.gamma * np.max(self.Q[estado_siguiente_val]) - self.Q[estado_actual][
+                        accion])
 
-                # Verificar si la acción es fallida
-                if np.random.rand() < 0.01:
-                    print("VA BORRACHO, NO VALID")
-                    action_failed = True
+                    acciones_realizadas.append(
+                        (accion, estado_actual, estado_siguiente_val))  # Almacenar la acción tomada
+                    # Actualizar el estado actual
+                    estado_actual = estado_siguiente_val
+                else:
+                    pass
+            # Reducir la exploración a medida que avanzan los episodios
+            self.epsilon = max(0.1, self.epsilon * 0.99)
 
-                # Si la acción no es fallida, continuar con la ejecución normal
-                if not action_failed:
-                    # Obtener la recompensa para la acción tomada
-                    reward = self.rewards[current_state, action]
+            # Imprimir las acciones realizadas en el episodio actual
+            if episodio == self.num_episodios - 1:
 
-                    # Moverse al siguiente estado
-                    next_state = self.move_action(current_state, action)
+                print(f"\nAcciones realizadas en el episodio {episodio + 1}:")
+                for accion, current, next_coords in acciones_realizadas:
+                    if accion is not None:
+                        self.printAction(accion, current, next_coords)
+                if accion is not None:
+                    # Visualizar el tablero con el camino óptimo
+                    self.visualize_board_drunken(estados, self.estado_bloqueado, self.estado_inicio, self.estado_final,
+                                         self.num_filas, self.num_columnas)  # Ajustado para comenzar en (1, 1)
 
-                    # Actualizar la matriz Q usando la ecuación de Q-learning
-                    self.Q[current_state, action] = self.Q[current_state, action] + self.alpha * (
-                            reward + self.gamma * np.max(self.Q[next_state, :]) - self.Q[current_state, action])
-
-                    # Actualizar el estado actual al siguiente estado
-                    current_state = next_state
-
-            # Imprimir la matriz Q en intervalos específicos
-            if episode == print_q_interval or episode == 1:
-                print(f"\nQ-table (Episode {episode}):")
-                print(self.Q)
-
-        # Imprimir la matriz Q
-        print("Q-table Final:")
+        # Imprimir la tabla Q aprendida
+        print("\nTabla Q aprendida:")
         print(self.Q)
 
-        # Imprimir el camino óptimo
-        optimal_path = [self.num_columns * (self.num_rows - 1)]  # Start position
-        current_state = optimal_path[0]
+        return 0
 
-        print("ACTIONS:")
-        while current_state != self.goal_state:
-            action = self.select_action(current_state)
-
-            next_state = self.move_action(current_state, action)
-
-            # Convertir estados a coordenadas (filas, columnas)
-            current_coords = (current_state // self.num_columns, current_state % self.num_columns)
-            next_coords = (next_state // self.num_columns, next_state % self.num_columns)
-
-            # Imprimir la acción
-            if action == 0:
-                print(current_coords, " (Arriba) --> ", next_coords)
-            elif action == 1:
-                print(current_coords, " (Abajo) --> ", next_coords)
-            elif action == 2:
-                print(current_coords, " (Izquierda) --> ", next_coords)
-            elif action == 3:
-                print(current_coords, " (Derecha) --> ", next_coords)
-
-            optimal_path.append(next_state)
-            current_state = next_state
-
-        # Convertir estados a coordenadas (filas, columnas) para el estado final
-        optimal_path_coords = [(state // self.num_columns, state % self.num_columns) for state in optimal_path]
-
-        return optimal_path_coords
 
 if __name__ == "__main__":
     #Para cambiar a las rewards diferentes, descomentar codigo de abajo, y comentar 'everywhere'
@@ -264,15 +254,15 @@ if __name__ == "__main__":
 
     #Si quereis que el agente tenga total eleccion de sus acciones, dejar descomentado = False,
     #En caso contrario, dejar descomentado el =True
-    drunken_sailor = False
-    #drunken_sailor = True
+    #drunken_sailor = False
+    drunken_sailor = True
     scenario = Scenario(apartado)
     print("Q-table (Initial):")
     print(scenario.Q)
     scenario.gamma = 0.8  # Factor de descuento
     scenario.alpha = 0.1  # Tasa de aprendizaje
+
     if drunken_sailor:
-        optimal_path = scenario.q_learning_drunken_sailor()
+        scenario.q_learning_drunken_sailor()
     else:
-        optimal_path = scenario.q_learning()
-    scenario.visualize_board(optimal_path)
+        scenario.q_learning()
