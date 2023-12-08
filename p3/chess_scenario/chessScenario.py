@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Sep  8 11:22:03 2022
-
-@author: ignasi
-"""
 import queue
 
 import chess
@@ -15,81 +10,10 @@ import heapq
 from itertools import permutations
 
 
-class Aichess():
+class chesssScenario():
 
     """
     A class to represent the game of chess.
-
-    ...
-
-     Attributes:
-    -----------
-    chess : Chess
-        Represents the current state of the chess game.
-    listNextStates : list
-        A list to store the next possible states in the game.
-    listVisitedStates : list
-        A list to store visited states during search.
-    pathToTarget : list
-        A list to store the path to the target state.
-    currentStateW : list
-        Represents the current state of the white pieces.
-    depthMax : int
-        The maximum depth to search in the game tree.
-    checkMate : bool
-        A boolean indicating whether the game is in a checkmate state.
-    dictVisitedStates : dict
-        A dictionary to keep track of visited states and their depths.
-    dictPath : dict
-        A dictionary to reconstruct the path during search.
-
-    Methods:
-    --------
-    getCurrentState() -> list
-        Returns the current state for the whites.
-
-    getListNextStatesW(myState) -> list
-        Retrieves a list of possible next states for the white pieces.
-
-    isSameState(a, b) -> bool
-        Checks whether two states are the same.
-
-    isVisited(mystate) -> bool
-        Checks if a state has been visited.
-
-    isCheckMate(mystate) -> bool
-        Checks if a state represents a checkmate.
-
-    DepthFirstSearch(currentState, depth) -> bool
-        Depth-first search algorithm.
-
-    worthExploring(state, depth) -> bool
-        Checks if a state is worth exploring during search using the optimised DFS algorithm.
-
-    DepthFirstSearchOptimized(currentState, depth) -> bool
-        Optimized depth-first search algorithm.
-
-    reconstructPath(state, depth) -> None
-        Reconstructs the path to the target state. Updates pathToTarget attribute.
-
-    canviarEstat(start, to) -> None
-        Moves a piece from one state to another.
-
-    movePieces(start, depthStart, to, depthTo) -> None
-        Moves all pieces between states.
-
-    BreadthFirstSearch(currentState, depth) -> None
-        Breadth-first search algorithm.
-
-    h(state) -> int
-        Calculates a heuristic value for a state using Manhattan distance.
-
-    AStarSearch(currentState) 
-        A* search algorithm -> To be implemented by you
-
-    translate(s) -> tuple
-        Translates traditional chess coordinates to list indices.
-
     """
 
     def __init__(self, TA, myinit=True):
@@ -113,8 +37,15 @@ class Aichess():
         self.dictPath = {}
 
 
+        # Nuevos parametros necesarios para aplicar Q-Learning 
+        self.actions = 8
+        self.alpha = 0.1  # Tasa de aprendizaje
+        self.gamma = 0.9  # Factor de descuento
+        self.epsilon = 0.1  # Exploración-Explotación trade-off
+        self.Q = np.zeros((64 * 64, self.actions*2)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
+
+
     def getCurrentState(self):
-    
         return self.myCurrentStateW
 
     def getListNextStatesW(self, myState):
@@ -159,110 +90,6 @@ class Aichess():
             return isVisited
         else:
             return False
-
-
-    def isCheckMate(self, mystate):
-        
-        # list of possible check mate states
-        listCheckMateStates = [[[0,0,2],[2,4,6]],[[0,1,2],[2,4,6]],[[0,2,2],[2,4,6]],[[0,6,2],[2,4,6]],[[0,7,2],[2,4,6]]]
-
-        # Check all state permuations and if they coincide with a list of CheckMates
-        for permState in list(permutations(mystate)):
-            if list(permState) in listCheckMateStates:
-                return True
-
-        return False
-
-    def DepthFirstSearch(self, currentState, depth):
-        
-        # We visited the node, therefore we add it to the list
-        # In DF, when we add a node to the list of visited, and when we have
-        # visited all noes, we eliminate it from the list of visited ones
-        self.listVisitedStates.append(currentState)
-
-        # is it checkmate?
-        if self.isCheckMate(currentState):
-            self.pathToTarget.append(currentState)
-            return True
-
-        if depth + 1 <= self.depthMax:
-            for son in self.getListNextStatesW(currentState):
-                if not self.isVisited(son):
-                    # in the state son, the first piece is the one just moved
-                    # We check the position of currentState
-                    # matched by the piece moved
-                    if son[0][2] == currentState[0][2]:
-                        fitxaMoguda = 0
-                    else:
-                        fitxaMoguda = 1
-
-                    # we move the piece to the new position
-                    self.chess.moveSim(currentState[fitxaMoguda],son[0])
-                    # We call again the method with the son, 
-                    # increasing depth
-                    if self.DepthFirstSearch(son,depth+1):
-                        #If the method returns True, this means that there has
-                        # been a checkmate
-                        # We ad the state to the list pathToTarget
-                        self.pathToTarget.insert(0,currentState)
-                        return True
-                    # we reset the board to the previous state
-                    self.chess.moveSim(son[0],currentState[fitxaMoguda])
-
-        # We eliminate the node from the list of visited nodes
-        # since we explored all successors
-        self.listVisitedStates.remove(currentState)
-
-    def worthExploring(self, state, depth):
-        
-        # First of all, we check that the depth is bigger than depthMax
-        if depth > self.depthMax: return False
-        visited = False
-        # check if the state has been visited
-        for perm in list(permutations(state)):
-            permStr = str(perm)
-            if permStr in list(self.dictVisitedStates.keys()):
-                visited = True
-                # If there state has been visited at a epth bigger than 
-                # the current one, we are interestted in visiting it again
-                if depth < self.dictVisitedStates[perm]:
-                    # We update the depth associated to the state
-                    self.dictVisitedStates[permStr] = depth
-                    return True
-        # Whenever not visited, we add it to the dictionary 
-        # at the current depth
-        if not visited:
-            permStr = str(state)
-            self.dictVisitedStates[permStr] = depth
-            return True
-
-    def DepthFirstSearchOptimized(self, currentState, depth):
-        # is it checkmate?
-        if self.isCheckMate(currentState):
-            self.pathToTarget.append(currentState)
-            return True
-
-        for son in self.getListNextStatesW(currentState):
-            if self.worthExploring(son,depth+1):
-                
-                # in state 'son', the first piece is the one just moved
-                # we check which position of currentstate matche
-                # the piece just moved
-                if son[0][2] == currentState[0][2]:
-                    fitxaMoguda = 0
-                else:
-                    fitxaMoguda = 1
-
-                # we move the piece to the novel position
-                self.chess.moveSim(currentState[fitxaMoguda], son[0])
-                # we call the method with the son again, increasing depth
-                if self.DepthFirstSearchOptimized(son, depth + 1):
-                    # If the method returns true, this means there was a checkmate
-                    # we add the state to the list pathToTarget
-                    self.pathToTarget.insert(0, currentState)
-                    return True
-                # we return the board to its previous state
-                self.chess.moveSim(son[0], currentState[fitxaMoguda])
 
     def reconstructPath(self, state, depth):
         # When we found the solution, we obtain the path followed to get to this        
@@ -330,41 +157,6 @@ class Aichess():
         for i in range(len(moveList)):
             if i < len(moveList) - 1:
                 self.canviarEstat(moveList[i],moveList[i+1])
-
-
-    def BreadthFirstSearch(self, currentState, depth):
-        """
-        Check mate from currentStateW
-        """
-        BFSQueue = queue.Queue()
-        # The node root has no parent, thus we add None, and -1, which would be the depth of the 'parent node'
-        self.dictPath[str(currentState)] = (None, -1)
-        depthCurrentState = 0
-        BFSQueue.put(currentState)
-        self.listVisitedStates.append(currentState)
-        # iterate until there is no more candidate nodes
-        while BFSQueue.qsize() > 0:
-            # Find the optimal configuration
-            node = BFSQueue.get()
-            depthNode = self.dictPath[str(node)][1] + 1
-            if depthNode > self.depthMax:
-                break
-            # If it not the root node, we move the pieces from the previous to the current state
-            if depthNode > 0:
-                self.movePieces(currentState, depthCurrentState, node, depthNode)
-
-            if self.isCheckMate(node):
-                # Si és checkmate, construïm el camí que hem trobat més òptim
-                self.reconstructPath(node, depthNode)
-                break
-
-            for son in self.getListNextStatesW(node):
-                if not self.isVisited(son):
-                    self.listVisitedStates.append(son)
-                    BFSQueue.put(son)
-                    self.dictPath[str(son)] = (node, depthNode)
-            currentState = node
-            depthCurrentState = depthNode
 
 
     def h(self,state):
@@ -457,32 +249,158 @@ class Aichess():
             gValueCurrentState = gValue_current_state
         return False
 
+    def translate(s):
+        """
+        Translates traditional board coordinates of chess into list indices
+        """
 
+        try:
+            row = int(s[0])
+            col = s[1]
+            if row < 1 or row > 8:
+                print(s[0] + "is not in the range from 1 - 8")
+                return None
+            if col < 'a' or col > 'h':
+                print(s[1] + "is not in the range from a - h")
+                return None
+            dict = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
+            return (8 - row, dict[col])
+        except:
+            print(s + "is not in the format '[number][letter]'")
+            return None
         
+# ---------------------------------------------------------------------------------------------------- #
+# ---------------------------------------- Q-LEARNING ------------------------------------------------ #
+# ---------------------------------------------------------------------------------------------------- #
+
+    def obtener_estado(self, fila, columna):
+        return fila * self.num_columnas + columna
+    
+    def getPieceState(self, state, piece):
+        pieceState = None
+        for i in state:
+            if i[2] == piece:
+                pieceState = i
+                break
+        return pieceState
+
+    def es_accion_valida(self, state, action):
+
+        piece_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
+
+        if action == 0:  # Move up
+            new_position = (piece_position[0] - 1, piece_position[1])
+        elif action == 1:  # Move down
+            new_position = (piece_position[0] + 1, piece_position[1])
+        elif action == 2:  # Move left
+            new_position = (piece_position[0], piece_position[1] - 1)
+        elif action == 3:  # Move right
+            new_position = (piece_position[0], piece_position[1] + 1)
+        elif action == 4:  # Move diagonally up-left
+            new_position = (piece_position[0] - 1, piece_position[1] - 1)
+        elif action == 5:  # Move diagonally up-right
+            new_position = (piece_position[0] - 1, piece_position[1] + 1)
+        elif action == 6:  # Move diagonally down-left
+            new_position = (piece_position[0] + 1, piece_position[1] - 1)
+        elif action == 7:  # Move diagonally down-right
+            new_position = (piece_position[0] + 1, piece_position[1] + 1)
+        else:
+            # accion invalida
+            return []
+
+        # comprobación de si la accion es valida
+        if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8:
+            return [[new_position[0], new_position[1], state[0][2]], state[1]]  # Update the piece position in the state
+        else:
+            return state
+
+    def selection_action(self, fila_actual, columna_actual):
+        # Seleccionar una acción basada en epsilon-greedy
+        if np.random.rand() < self.epsilon:
+            accion = np.random.randint(self.actions)  # Exploración aleatoria
+        else: 
+            ## caso de explotación
+            accion = np.argmax(self.Q[self.obtener_estado(fila_actual, columna_actual)])
+        return accion
 
 
+    def isCheckMate(self, mystate):
+        
+        # list of possible check mate states
+        listCheckMateStates = [[[0,0,2],[2,4,6]],[[0,1,2],[2,4,6]],[[0,2,2],[2,4,6]],[[0,6,2],[2,4,6]],[[0,7,2],[2,4,6]]]
 
-def translate(s):
-    """
-    Translates traditional board coordinates of chess into list indices
-    """
+        # Check all state permuations and if they coincide with a list of CheckMates
+        for permState in list(permutations(mystate)):
+            if list(permState) in listCheckMateStates:
+                return True
 
-    try:
-        row = int(s[0])
-        col = s[1]
-        if row < 1 or row > 8:
-            print(s[0] + "is not in the range from 1 - 8")
-            return None
-        if col < 'a' or col > 'h':
-            print(s[1] + "is not in the range from a - h")
-            return None
-        dict = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
-        return (8 - row, dict[col])
-    except:
-        print(s + "is not in the format '[number][letter]'")
-        return None
+        return False
 
 
+    def reward(self, state):
+        # si checkmante de blancas, recompensa 100
+        if self.isCheckMate(state):
+            return 100
+        # en resto de posiciones -1
+        else:
+            return -1
+        
+    """    
+    def q_learning_Chess(self):
+        num_episodios = 1000
+        umbral_convergencia = 0.01
+        convergencias = 0
+        num_convergencias_necesarias = 5
+
+        for episodio in range(num_episodios):
+            fila_actual, columna_actual = startPosition  # Corresponde al (1,1) de la tabla del enunciado
+            acciones = []
+
+            # mientras no sea estado terminal
+            while not (fila_actual, columna_actual) == goalPosition:
+                
+                accion = self.selection_action(fila_actual, columna_actual)
+
+                # Realizar la acción y obtener la nueva posición
+                nueva_fila, nueva_columna = self.es_accion_valida(fila_actual, columna_actual, accion)
+
+                if self.rewards_type == 'everywhere':
+                    recompensa = self.recompensa_goal if (nueva_fila, nueva_columna) == (
+                    0, 3) else self.recompensa_default
+                elif self.rewards_type == 'custom_rewards':
+                    recompensa = self.recompensas[nueva_fila, nueva_columna]
+                else:
+                    raise ValueError("Tipo de recompensas no válido.")
+
+                acciones.append((accion, (fila_actual, columna_actual), (nueva_fila, nueva_columna), recompensa))
+
+                # Actualizar la Q-table usando la ecuación de Bellman
+                nuevo_estado = self.obtener_estado(nueva_fila, nueva_columna)
+                estado_actual = self.obtener_estado(fila_actual, columna_actual)
+                self.Q[estado_actual, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[estado_actual, accion])
+
+                # Actualizar la posición actual
+                fila_actual, columna_actual = nueva_fila, nueva_columna
+            
+
+            # Verificar convergencia
+            if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
+                convergencias += 1
+                if convergencias >= num_convergencias_necesarias:
+                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
+                    for accion, current_coords, next_coords, reward in acciones:
+                        self.print_action(accion, current_coords, next_coords, reward)
+                    break
+            else:
+                convergencias = 0
+
+            # Guardar la Q-table del episodio actual para comparar con la siguiente
+            self.Q_anterior = np.copy(self.Q)
+
+        # Imprimir la Q-table final
+        print("\nQ-table final:")
+        print(self.Q)
+        """
 
 if __name__ == "__main__":
 
@@ -499,14 +417,15 @@ if __name__ == "__main__":
     TA[0][4] = 12
     
     # initialise bord
-    print("stating AI chess... ")
-    aichess = Aichess(TA, True)
+    print("stating Chess Board... ")
+    aichess = chesssScenario(TA, True)
     currentState = aichess.chess.board.currentStateW.copy()
     print("printing board")
     aichess.chess.boardSim.print_board() 
 
+    print("Q-table:\n")
+    print(aichess.Q)
+
     # get list of next states for current state
     print("current State",currentState,"\n")
-
-
 
