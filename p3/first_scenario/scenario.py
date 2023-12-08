@@ -23,6 +23,7 @@ class Scenario:
 
         self.Q = np.zeros((self.num_filas * self.num_columnas, self.num_acciones))
 
+
     def obtener_estado(self, fila, columna):
         return fila * self.num_columnas + columna
 
@@ -48,22 +49,23 @@ class Scenario:
         # Seleccionar una acción basada en epsilon-greedy
         if np.random.rand() < self.epsilon:
             accion = np.random.randint(self.num_acciones)  # Exploración aleatoria
-        else:
+        else: ## caso de explotación
             accion = np.argmax(self.Q[self.obtener_estado(fila_actual, columna_actual)])
-
         return accion
 
-    def q_learning(self):
+    def q_learning(self, startPosition, goalPosition):
         num_episodios = 1000
         umbral_convergencia = 0.01
         convergencias = 0
         num_convergencias_necesarias = 5
 
         for episodio in range(num_episodios):
-            fila_actual, columna_actual = 2, 0  # Iniciar en la esquina superior izquierda
+            fila_actual, columna_actual = startPosition  # Corresponde al (1,1) de la tabla del enunciado
             acciones = []
 
-            while True:
+            # mientras no sea estado terminal
+            while not (fila_actual, columna_actual) == goalPosition:
+                
                 accion = self.selection_action(fila_actual, columna_actual)
 
                 # Realizar la acción y obtener la nueva posición
@@ -81,22 +83,18 @@ class Scenario:
 
                 # Actualizar la Q-table usando la ecuación de Bellman
                 nuevo_estado = self.obtener_estado(nueva_fila, nueva_columna)
-                self.Q[self.obtener_estado(fila_actual, columna_actual), accion] += \
-                    self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[
-                        self.obtener_estado(fila_actual, columna_actual), accion])
+                estado_actual = self.obtener_estado(fila_actual, columna_actual)
+                self.Q[estado_actual, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[estado_actual, accion])
 
                 # Actualizar la posición actual
                 fila_actual, columna_actual = nueva_fila, nueva_columna
-
-                # Verificar si ha llegado al objetivo
-                if (fila_actual, columna_actual) == (0, 3):
-                    break
+            
 
             # Verificar convergencia
             if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
                 convergencias += 1
                 if convergencias >= num_convergencias_necesarias:
-                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:")
+                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
                     for accion, current_coords, next_coords, reward in acciones:
                         self.print_action(accion, current_coords, next_coords, reward)
                     break
@@ -110,6 +108,7 @@ class Scenario:
         print("\nQ-table final:")
         print(self.Q)
 
+    
     def selection_action_drunken(self, fila, columna, accion_elegida):
         # Probabilidad de fallar el movimiento
         if np.random.rand() < 0.01:
@@ -120,17 +119,17 @@ class Scenario:
         # Seleccionar la acción escogida
         return accion_elegida
 
-    def q_learning_drunken_sailor(self):
+    def q_learning_drunken_sailor(self, startPosition, goalPosition):
         num_episodios = 1000
         umbral_convergencia = 0.01
         convergencias = 0
         num_convergencias_necesarias = 5
 
         for episodio in range(num_episodios):
-            fila_actual, columna_actual = 2, 0  # Iniciar en la esquina superior izquierda
+            fila_actual, columna_actual = startPosition  # Iniciar en la esquina superior izquierda
             acciones = []
 
-            while True:
+            while not (fila_actual, columna_actual) == goalPosition:
                 possible_action = self.selection_action(fila_actual, columna_actual)
                 accion = self.selection_action_drunken(fila_actual, columna_actual, possible_action)
 
@@ -157,18 +156,14 @@ class Scenario:
 
                     # Actualizar la posición actual
                     fila_actual, columna_actual = nueva_fila, nueva_columna
-
-                    # Verificar si ha llegado al objetivo
-                    if (fila_actual, columna_actual) == (0, 3):
-                        break
                 else:
-                    pass
+                    continue
 
             # Verificar convergencia
             if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
                 convergencias += 1
                 if convergencias >= num_convergencias_necesarias:
-                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:")
+                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
                     for accion, current_coords, next_coords, reward in acciones:
                         self.print_action(accion, current_coords, next_coords, reward)
                     break
@@ -181,18 +176,9 @@ class Scenario:
         # Imprimir la Q-table final
         print("\nQ-table final:")
         print(self.Q)
-    def print_action(self, action, current_coords, next_coords, reward):
-        print("TABLA ACTUAL: ")
-        for fila in range(self.num_filas):
-            for columna in range(self.num_columnas):
-                if (fila, columna) == current_coords:
-                    print('O', end=' ')
-                elif (fila, columna) in self.bloqueados:
-                    print('X', end=' ')
-                else:
-                    print('-', end=' ')
-            print()
-        print()
+
+    
+    def print_action(self, action,current_coords, next_coords, reward):
         # Imprimir la acción y la recompensa
         if action == 0:
             print(f"(Arriba) --> {next_coords}   Reward: {reward}")
@@ -202,24 +188,32 @@ class Scenario:
             print(f"(Izquierda) --> {next_coords}   Reward: {reward}")
         elif action == 3:
             print(f"(Derecha) --> {next_coords}   Reward: {reward}")
+
+        self.print_board(next_coords)
         print()
 
-        print("TABLA SIGUIENTE: ")
+
+    def print_board(self, coords):
+        print("+" + "-" * (self.num_columnas * 4 - 1) + "+")
         for fila in range(self.num_filas):
+            print("|", end=' ')
             for columna in range(self.num_columnas):
-                if (fila, columna) == next_coords:
+                if (fila, columna) == coords:
                     print('O', end=' ')
                 elif (fila, columna) in self.bloqueados:
                     print('X', end=' ')
                 else:
                     print('-', end=' ')
+                print("|", end=' ')
             print()
-        print()
+        print("+" + "-" * (self.num_columnas * 4 - 1) + "+")
+        
+
 
 if __name__ == "__main__":
     # Para cambiar a las rewards diferentes, descomentar codigo de abajo, y comentar 'everywhere'
     # Si quereis el -1 en todos lados, y no el custom, comentar custom, y descomentar everywhere
-    # apartado = 'everywhere'
+    #apartado = 'everywhere'
     apartado = 'custom_rewards'
 
     # Si quereis que el agente tenga total eleccion de sus acciones, dejar descomentado = False,
@@ -227,12 +221,17 @@ if __name__ == "__main__":
     #drunken_sailor = False
     drunken_sailor = True
     scenario = Scenario(apartado)
-    print("Q-table (Initial):")
+    print("\nQ-table (Initial):")
     print(scenario.Q)
     scenario.gamma = 0.8  # Factor de descuento
     scenario.alpha = 0.1  # Tasa de aprendizaje
 
+    start = (2,0)
+    goal = (0,3)
+    print("\nBoard inicial")
+    scenario.print_board(start)
+    
     if drunken_sailor:
-        scenario.q_learning_drunken_sailor()
+        scenario.q_learning_drunken_sailor(start,goal)
     else:
-        scenario.q_learning()
+        scenario.q_learning(start,goal)

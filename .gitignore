@@ -2,3 +2,6 @@
 p2/src/__pycache__/board.cpython-311.pyc
 p2/src/__pycache__/chess.cpython-311.pyc
 p2/src/__pycache__/piece.cpython-311.pyc
+p3/chess_scenario/__pycache__/board.cpython-311.pyc
+p3/chess_scenario/__pycache__/chess.cpython-311.pyc
+p3/chess_scenario/__pycache__/piece.cpython-311.pyc
