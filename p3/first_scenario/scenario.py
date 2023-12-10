@@ -55,7 +55,7 @@ class Scenario:
 
     def q_learning(self, startPosition, goalPosition):
         num_episodios = 1000
-        umbral_convergencia = 0.01
+        umbral_convergencia = 0.0001
         convergencias = 0
         num_convergencias_necesarias = 5
 
@@ -88,7 +88,10 @@ class Scenario:
 
                 # Actualizar la posición actual
                 fila_actual, columna_actual = nueva_fila, nueva_columna
-            
+
+            if episodio % 100 == 0:
+                print("Q-TABLE AL EPISODI ", episodio)
+                print(self.Q)
 
             # Verificar convergencia
             if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
@@ -154,10 +157,15 @@ class Scenario:
                         self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[
                             self.obtener_estado(fila_actual, columna_actual), accion])
 
+
                     # Actualizar la posición actual
                     fila_actual, columna_actual = nueva_fila, nueva_columna
                 else:
                     continue
+
+            if episodio % 100 == 0:
+                print("Q-TABLE AL EPISODI ", episodio)
+                print(self.Q)
 
             # Verificar convergencia
             if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
