@@ -121,7 +121,7 @@ class Scenario:
 
     def q_learning_drunken_sailor(self, startPosition, goalPosition):
         num_episodios = 1000
-        umbral_convergencia = 0.01
+        umbral_convergencia = 0.0001
         convergencias = 0
         num_convergencias_necesarias = 5
 

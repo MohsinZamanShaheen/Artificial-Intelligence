@@ -38,11 +38,13 @@ class chesssScenario():
 
 
         # Nuevos parametros necesarios para aplicar Q-Learning 
-        self.actions = 8
+        self.actions = 12
+        self.num_filas = 8
+        self.num_columnas = 8
         self.alpha = 0.1  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
         self.epsilon = 0.1  # Exploración-Explotación trade-off
-        self.Q = np.zeros((64 * 64, self.actions*2)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
+        self.Q = np.zeros((self.num_filas * self.num_columnas, self.actions)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
 
 
     def getCurrentState(self):
@@ -286,46 +288,70 @@ class chesssScenario():
 
     def es_accion_valida(self, state, action):
 
-        piece_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
+        tower_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
+        king_position = self.getPieceState(state, 6)
 
+        new_state = []
+        #KING
         if action == 0:  # Move up
-            new_position = (piece_position[0] - 1, piece_position[1])
+            new_state = [(tower_position), [king_position[0] - 1, king_position[1], king_position[2]]]
         elif action == 1:  # Move down
-            new_position = (piece_position[0] + 1, piece_position[1])
+            new_state = [(tower_position), [king_position[0] + 1, king_position[1], king_position[2]]]
         elif action == 2:  # Move left
-            new_position = (piece_position[0], piece_position[1] - 1)
+            new_state = [(tower_position), [king_position[0], king_position[1] - 1, king_position[2]]]
         elif action == 3:  # Move right
-            new_position = (piece_position[0], piece_position[1] + 1)
+            new_state = [(tower_position), [king_position[0], king_position[1] + 1, king_position[2]]]
         elif action == 4:  # Move diagonally up-left
-            new_position = (piece_position[0] - 1, piece_position[1] - 1)
+            new_state = [(tower_position), [king_position[0] - 1, king_position[1] - 1, king_position[2]]]
         elif action == 5:  # Move diagonally up-right
-            new_position = (piece_position[0] - 1, piece_position[1] + 1)
+            new_state = [(tower_position), [king_position[0] - 1, king_position[1] + 1, king_position[2]]]
         elif action == 6:  # Move diagonally down-left
-            new_position = (piece_position[0] + 1, piece_position[1] - 1)
+            new_state = [(tower_position), [king_position[0] + 1, king_position[1] - 1, king_position[2]]]
         elif action == 7:  # Move diagonally down-right
-            new_position = (piece_position[0] + 1, piece_position[1] + 1)
+            new_state = [(tower_position), [king_position[0] + 1, king_position[1] + 1, king_position[2]]]
+        #TOWER
+        elif action == 8: #Move UP
+            new_state = [[tower_position[0]-1, tower_position[1], tower_position[2]], (king_position)]
+        elif action == 9: #Move Down
+            new_state = [[tower_position[0]+1, tower_position[1], tower_position[2]], (king_position)]
+        elif action == 10: #Move Left
+            new_state = [[tower_position[0], tower_position[1]-1, tower_position[2]], (king_position)]
+        elif action == 11: #Move Right
+            new_state = [[tower_position[0]-1, tower_position[1]+1, tower_position[2]], (king_position)]
         else:
-            # accion invalida
-            return []
+            new_state = state
 
-        # comprobación de si la accion es valida
-        if 0 <= new_position[0] < 8 and 0 <= new_position[1] < 8:
-            return [[new_position[0], new_position[1], state[0][2]], state[1]]  # Update the piece position in the state
+        new_tower_position = self.getPieceState(new_state, 2)
+        new_king_position = self.getPieceState(new_state, 6)
+        tower_position = self.getPieceState(state, 2)
+        king_position = self.getPieceState(state, 6)
+
+        if 8 <= action <= 11:
+            if 0 <= new_tower_position[0] < 8 and 0 <= new_tower_position[1] < 8:
+                correction_state = [(tower_position), (king_position)]
+            else:
+                correction_state = [(new_tower_position), (king_position)]
+        elif 0 <= action <= 7:
+            if 0 <= new_king_position[0] < 8 and 0 <= new_king_position[1] < 8:
+                correction_state = [(tower_position), (king_position)]
+            else:
+                correction_state = [(tower_position), (new_king_position)]
         else:
-            return state
+            correction_state = state
 
-    def selection_action(self, fila_actual, columna_actual):
+        return correction_state
+
+    def selection_action(self, stateActual):
         # Seleccionar una acción basada en epsilon-greedy
         if np.random.rand() < self.epsilon:
             accion = np.random.randint(self.actions)  # Exploración aleatoria
         else: 
             ## caso de explotación
-            accion = np.argmax(self.Q[self.obtener_estado(fila_actual, columna_actual)])
+            accion = np.argmax(self.Q[stateActual])
         return accion
 
 
     def isCheckMate(self, mystate):
-        
         # list of possible check mate states
         listCheckMateStates = [[[0,0,2],[2,4,6]],[[0,1,2],[2,4,6]],[[0,2,2],[2,4,6]],[[0,6,2],[2,4,6]],[[0,7,2],[2,4,6]]]
 
@@ -345,62 +371,38 @@ class chesssScenario():
         else:
             return -1
         
-    """    
-    def q_learning_Chess(self):
+
+    def q_learning_Chess(self, firstState):
         num_episodios = 1000
         umbral_convergencia = 0.01
         convergencias = 0
         num_convergencias_necesarias = 5
 
         for episodio in range(num_episodios):
-            fila_actual, columna_actual = startPosition  # Corresponde al (1,1) de la tabla del enunciado
+            state_actual = firstState
             acciones = []
 
             # mientras no sea estado terminal
-            while not (fila_actual, columna_actual) == goalPosition:
-                
-                accion = self.selection_action(fila_actual, columna_actual)
+            while True:
+                accion = self.selection_action(state_actual)
 
                 # Realizar la acción y obtener la nueva posición
-                nueva_fila, nueva_columna = self.es_accion_valida(fila_actual, columna_actual, accion)
+                new_state = self. es_accion_valida(state_actual, accion)
 
-                if self.rewards_type == 'everywhere':
-                    recompensa = self.recompensa_goal if (nueva_fila, nueva_columna) == (
-                    0, 3) else self.recompensa_default
-                elif self.rewards_type == 'custom_rewards':
-                    recompensa = self.recompensas[nueva_fila, nueva_columna]
-                else:
-                    raise ValueError("Tipo de recompensas no válido.")
+                recompensa = self.reward(new_state)
 
-                acciones.append((accion, (fila_actual, columna_actual), (nueva_fila, nueva_columna), recompensa))
-
-                # Actualizar la Q-table usando la ecuación de Bellman
-                nuevo_estado = self.obtener_estado(nueva_fila, nueva_columna)
-                estado_actual = self.obtener_estado(fila_actual, columna_actual)
-                self.Q[estado_actual, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[estado_actual, accion])
+                self.Q[state_actual, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[new_state]) - self.Q[state_actual, accion])
 
                 # Actualizar la posición actual
-                fila_actual, columna_actual = nueva_fila, nueva_columna
-            
-
-            # Verificar convergencia
-            if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
-                convergencias += 1
-                if convergencias >= num_convergencias_necesarias:
-                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
-                    for accion, current_coords, next_coords, reward in acciones:
-                        self.print_action(accion, current_coords, next_coords, reward)
+                state_actual = new_state
+                
+                if self.isCheckMate(state_actual):
                     break
-            else:
-                convergencias = 0
-
-            # Guardar la Q-table del episodio actual para comparar con la siguiente
-            self.Q_anterior = np.copy(self.Q)
+            
 
         # Imprimir la Q-table final
         print("\nQ-table final:")
         print(self.Q)
-        """
 
 if __name__ == "__main__":
 
@@ -421,11 +423,14 @@ if __name__ == "__main__":
     aichess = chesssScenario(TA, True)
     currentState = aichess.chess.board.currentStateW.copy()
     print("printing board")
-    aichess.chess.boardSim.print_board() 
+    aichess.chess.boardSim.print_board()
+
 
     print("Q-table:\n")
     print(aichess.Q)
 
     # get list of next states for current state
     print("current State",currentState,"\n")
+
+    aichess.q_learning_Chess(currentState)
 
