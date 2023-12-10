@@ -7,7 +7,7 @@ class Scenario:
         self.num_acciones = 4
         self.alpha = 0.1  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
-        self.epsilon = 0.1  # Exploración-Explotación trade-off
+        self.epsilon = 0.5  # Exploración-Explotación trade-off
         self.bloqueados = [(1, 1)]
         self.rewards_type = rewards_type
 
@@ -153,9 +153,8 @@ class Scenario:
 
                     # Actualizar la Q-table usando la ecuación de Bellman
                     nuevo_estado = self.obtener_estado(nueva_fila, nueva_columna)
-                    self.Q[self.obtener_estado(fila_actual, columna_actual), accion] += \
-                        self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[
-                            self.obtener_estado(fila_actual, columna_actual), accion])
+                    estado_actual = self.obtener_estado(fila_actual, columna_actual)
+                    self.Q[estado_actual, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[nuevo_estado]) - self.Q[estado_actual, accion])
 
 
                     # Actualizar la posición actual
@@ -231,8 +230,6 @@ if __name__ == "__main__":
     scenario = Scenario(apartado)
     print("\nQ-table (Initial):")
     print(scenario.Q)
-    scenario.gamma = 0.8  # Factor de descuento
-    scenario.alpha = 0.1  # Tasa de aprendizaje
 
     start = (2,0)
     goal = (0,3)
