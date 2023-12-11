@@ -76,6 +76,10 @@ class Chess():
                     pawn = piece.Pawn(True)
         self.board.board[pos[0]][pos[1]] = pawn
 
+
+    def newBoardSim(self, initboard):
+        self.boardSim = board.Board(initboard, False)
+
     def moveSim(self, start, to, verbose=True):
 
         """
