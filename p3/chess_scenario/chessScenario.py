@@ -39,6 +39,7 @@ class chesssScenario():
 
 
         # Nuevos parametros necesarios para aplicar Q-Learning 
+        self.total_episodes = 0
         self.actions = 8 + 28
         self.num_filas = 8
         self.num_columnas = 8
@@ -82,92 +83,6 @@ class chesssScenario():
 
         isSameState = isSameState1 and isSameState2
         return isSameState
-
-    def isVisited(self, mystate):
-
-        if (len(self.listVisitedStates) > 0):
-            perm_state = list(permutations(mystate))
-
-            isVisited = False
-            for j in range(len(perm_state)):
-
-                for k in range(len(self.listVisitedStates)):
-
-                    if self.isSameState(list(perm_state[j]), self.listVisitedStates[k]):
-                        isVisited = True
-
-            return isVisited
-        else:
-            return False
-
-    def reconstructPath(self, state, depth):
-        # When we found the solution, we obtain the path followed to get to this        
-        for i in range(depth):
-            self.pathToTarget.insert(0,state)
-            #Per cada node, mirem quin és el seu pare
-            state = self.dictPath[str(state)][0]
-
-        self.pathToTarget.insert(0,state)
-
-    def canviarEstat(self, start, to):
-        # We check which piece has been moved from one state to the next
-        if start[0] == to[0]:
-            fitxaMogudaStart=1
-            fitxaMogudaTo = 1
-        elif start[0] == to[1]:
-            fitxaMogudaStart = 1
-            fitxaMogudaTo = 0
-        elif start[1] == to[0]:
-            fitxaMogudaStart = 0
-            fitxaMogudaTo = 1
-        else:
-            fitxaMogudaStart = 0
-            fitxaMogudaTo = 0
-        # move the piece changed
-        self.chess.moveSim(start[fitxaMogudaStart], to[fitxaMogudaTo])
-
-    def movePieces(self, start, depthStart, to, depthTo):
-        
-        # To move from one state to the next for BFS we will need to find
-        # the state in common, and then move until the node 'to'
-        moveList = []
-        # We want that the depths are equal to find a common ancestor
-        nodeTo = to
-        nodeStart = start
-        # if the depth of the node To is larger than that of start, 
-        # we pick the ancesters of the node until being at the same
-        # depth
-        while(depthTo > depthStart):
-            moveList.insert(0,to)
-            nodeTo = self.dictPath[str(nodeTo)][0]
-            depthTo-=1
-        # Analogous to the previous case, but we trace back the ancestors
-        #until the node 'start'
-        while(depthStart > depthTo):
-            ancestreStart = self.dictPath[str(nodeStart)][0]
-            # We move the piece the the parerent state of nodeStart
-            self.canviarEstat(nodeStart, ancestreStart)
-            nodeStart = ancestreStart
-            depthStart -= 1
-
-
-        moveList.insert(0,nodeTo)
-        # We seek for common node
-        while nodeStart != nodeTo:
-            ancestreStart = self.dictPath[str(nodeStart)][0]
-            # Move the piece the the parerent state of nodeStart
-            self.canviarEstat(nodeStart,ancestreStart)
-            # pick the parent of nodeTo
-            nodeTo = self.dictPath[str(nodeTo)][0]
-            # store in the list
-            moveList.insert(0,nodeTo)
-            nodeStart = ancestreStart
-        # Move the pieces from the node in common
-        # until the node 'to'
-        for i in range(len(moveList)):
-            if i < len(moveList) - 1:
-                self.canviarEstat(moveList[i],moveList[i+1])
-
 
     def h(self,state):
         
@@ -258,26 +173,6 @@ class chesssScenario():
             currentState = current_state
             gValueCurrentState = gValue_current_state
         return False
-
-    def translate(s):
-        """
-        Translates traditional board coordinates of chess into list indices
-        """
-
-        try:
-            row = int(s[0])
-            col = s[1]
-            if row < 1 or row > 8:
-                print(s[0] + "is not in the range from 1 - 8")
-                return None
-            if col < 'a' or col > 'h':
-                print(s[1] + "is not in the range from a - h")
-                return None
-            dict = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
-            return (8 - row, dict[col])
-        except:
-            print(s + "is not in the format '[number][letter]'")
-            return None
         
 # ---------------------------------------------------------------------------------------------------- #
 # ---------------------------------------- Q-LEARNING ------------------------------------------------ #
@@ -558,7 +453,7 @@ class chesssScenario():
                 if self.has_converged(self.Q, self.Q_anterior, umbral_convergencia):
                     convergencias += 1
                     if convergencias >= num_convergencias_necesarias:
-                        print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
+                        self.total_episodes = episodio
                         break
             else:
                 convergencias = 0
@@ -569,7 +464,9 @@ class chesssScenario():
 
         # Imprimir la Q-table final
         print("\nQ-table final:")
-        #print(self.Q)
+        print(self.Q)
+
+        print(f"Convergence achieved in {episodio} episodes.\n")
 
     def has_converged(self, Q, Q_anterior, umbral_convergencia):
         max_diff = 0
@@ -580,21 +477,7 @@ class chesssScenario():
                     max_diff = max(max_diff, diff)
                 else:
                     max_diff = max(max_diff, abs(Q[state][action]))
-        return max_diff < umbral_convergencia
-
-
-    def getBestState(self, state):
-        next_states = self.getListNextStatesW(state)
-        max_val = float('-inf')
-        best_state = []
-        
-        for next in next_states:
-            val = self.Q[state][0]
-            if val > max_val:
-                max_val = val
-                best_state = next
-        return max_val, best_state
-        
+        return max_diff < umbral_convergencia        
 
     def print_action(self, action,current_coords, next_coords, reward):
         # Imprimir la acción y la recompensa
