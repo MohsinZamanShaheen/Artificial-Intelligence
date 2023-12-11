@@ -42,9 +42,9 @@ class chesssScenario():
         self.actions = 8 + 28
         self.num_filas = 8
         self.num_columnas = 8
-        self.alpha = 0.1  # Tasa de aprendizaje
+        self.alpha = 0.4  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
-        self.epsilon = 0.3  # Exploración-Explotación trade-off
+        self.epsilon = 0.4  # Exploración-Explotación trade-off
         #self.Q = np.zeros((self.num_filas * self.num_columnas, self.actions)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
         self.Q= {}
         for row in range(self.num_filas):
@@ -287,8 +287,12 @@ class chesssScenario():
     def newBoardSim(self, listStates):
         # We create a  new boardSim
         TA = np.zeros((8, 8))
-        for state in listStates:
-            TA[state[0]][state[1]] = state[2]
+        # load initial state
+        # white pieces
+        TA[7][0] = 2
+        TA[7][4] = 6
+        # black pieces
+        TA[0][4] = 12
 
         self.chess.newBoardSim(TA)
     
@@ -304,7 +308,7 @@ class chesssScenario():
 
         tower_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
         king_position = self.getPieceState(state, 6)
-
+        black_king = [[0,4,12]]
         new_state = []
 
         if 0 <= action <=7:
@@ -395,7 +399,7 @@ class chesssScenario():
 
         new_tower_position = self.getPieceState(new_state, 2)
         new_king_position = self.getPieceState(new_state, 6)
-
+        '''
         if 8 <= action <= 35:
             if 0 <= new_tower_position[0] <= 7 and 0 <= new_tower_position[1] <= 7:
                 correction_state = [(new_tower_position), (king_position)]
@@ -408,10 +412,48 @@ class chesssScenario():
                 correction_state = [(tower_position), (king_position)]
         else:
             correction_state = state
-
+        '''
+        if new_state[0][0] == black_king[0][0] and new_state[0][1] == black_king[0][1]:
+            return [(tower_position), (king_position)]
         #print("De estado: ", state, " con action ", action, " al estado ", correction_state )
 
-        return correction_state
+        return new_state
+
+    def print_best_path(self, start_state):
+        self.newBoardSim(start_state)
+        current_state = start_state
+        path = [current_state]
+        path_found = True
+
+        while not self.isCheckMate(current_state):
+            state_key = self.state_to_tuple(current_state)
+            #print(self.q_table[state_key])
+            
+            if state_key not in self.Q:
+                break
+            
+            # Get the action with the highest Q-value for the current state
+            best_action = max(self.Q[state_key], key=self.Q[state_key].get)
+            next_state = self.es_accion_valida(current_state,best_action)
+            if current_state != next_state:  
+                movement = self.getMovement(current_state, next_state)
+                self.chess.moveSim(movement[0], movement[1])
+                #self.chess.boardSim.print_board()
+                
+            else:
+                path_found = False
+                print("No path found! Retry with different parametres. Agent needs more learning.")
+                break
+
+
+            current_state = next_state
+            path.append(current_state)
+
+        # If we have found the path, we print it
+        if path_found:
+            # Print the final path
+            print("\nBest path to checkmate:")
+            print(path)
     
     
     def kingPosition(self, state):
@@ -473,7 +515,7 @@ class chesssScenario():
             return 100
         # en resto de posiciones -1
         else:
-            return -1
+            return -1 *self.h(state)
 
     def q_learning_Chess(self, firstState):
         num_episodios = 1000
@@ -482,17 +524,16 @@ class chesssScenario():
         num_convergencias_necesarias = 5
 
         for episodio in range(num_episodios):
+            print("episodi: ", episodio)
             currentState = firstState
+            self.newBoardSim(currentState)
             acciones = []
             end = False
 
-            while not end:
+            while not self.isCheckMate(currentState):
                 
                 action = self.selection_action(currentState)
                 nextPossibleStates = self.getListNextStatesW(currentState)
-                #print("\n Next states: ", nextPossibleStates)
-                #print() 
-                #print("\nNext possible states: ", nextPossibleStates)
                 nextState = self.es_accion_valida(currentState,action)
                 same_next_State = nextState[::-1] 
                 if ((nextState not in nextPossibleStates) and (same_next_State not in nextPossibleStates)) or nextState == currentState:
@@ -504,23 +545,15 @@ class chesssScenario():
                 # Initialize nextState in Q-table if not present
                 if nx not in self.Q:
                     self.Q[nx] = {a: 0 for a in range(self.actions)}
-                #print("Q added new state:\n", self.Q)
-                #print()
                 self.Q[curr][action] += self.alpha * (recompensa + self.gamma * max(self.Q[nx].values()) - self.Q[curr][action])
                 movement = self.getMovement(currentState,nextState)
                 self.chess.moveSim(movement[0], movement[1])
-                self.chess.boardSim.print_board()
-                #print("Q update values:\n", self.Q)
-                #print()
-                if self.isCheckMate(currentState):
-                    print("Checkmate done")
-                    end = True
                 currentState = nextState
-            """
-            if episodio % 100 == 0:
+            
+            if episodio % 500 == 0:
                 print("Q-TABLE AL EPISODI ", episodio)
                 print(self.Q)
-            """
+            
             if episodio > 0:
                 if self.has_converged(self.Q, self.Q_anterior, umbral_convergencia):
                     convergencias += 1
@@ -529,7 +562,6 @@ class chesssScenario():
                         break
             else:
                 convergencias = 0
-            
 
             # Guardar la Q-table del episodio actual para comparar con la siguiente
             self.Q_anterior = {state: self.Q[state].copy() for state in self.Q}
@@ -537,7 +569,7 @@ class chesssScenario():
 
         # Imprimir la Q-table final
         print("\nQ-table final:")
-        print(self.Q)
+        #print(self.Q)
 
     def has_converged(self, Q, Q_anterior, umbral_convergencia):
         max_diff = 0
@@ -620,4 +652,8 @@ if __name__ == "__main__":
     print(aichess.Q)
 
     aichess.q_learning_Chess(currentState)
+    aichess.print_best_path(currentState)
+
+    print("\nFinal board state\n")
+    aichess.chess.boardSim.print_board()
 
