@@ -340,7 +340,7 @@ class chesssScenario():
             accion = max(q_values, key=q_values.get)
         return accion
 
-    def selection_action_drunken(self, stateActual, intended_action_probability=0.9):
+    def selection_action_drunken(self, stateActual):
         # Seleccionar una acción basada en epsilon-greedy
         if np.random.rand() < self.epsilon:
             # Exploración aleatoria
@@ -352,11 +352,13 @@ class chesssScenario():
             accion = max(q_values, key=q_values.get)
         
         # Randomness
-        if np.random.rand() > intended_action_probability:
+        # probabilidad de fallar
+        if np.random.rand() < 0.01:
             # Take a random action from all other possibilities
             all_actions = list(range(self.actions))
             all_actions.remove(accion)  # Remove the intended action
-            accion = np.random.choice(all_actions)
+            return np.random.choice(all_actions)
+        # en el 99% retornara la accion escojida
         return accion
 
     def isCheckMate(self, mystate):
@@ -424,7 +426,7 @@ class chesssScenario():
                 # update the current state for the next iteration
                 currentState = nextState
             
-            if episodio % 100 == 0:
+            if episodio % 300 == 0:
                 print("\nQ-TABLE AT EPISODE ", episodio)
                 # print en formato array/matriz
                 self.printQTableAsMatrix(self.Q)
@@ -580,9 +582,10 @@ if __name__ == "__main__":
     print("current State ",currentState,"\n")
 
     print("Q-table start:\n")
-    aichess.printQTableAsMatrix(aichess.Q)
-    #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
-    #print(aichess.Q)
+    #aichess.printQTableAsMatrix(aichess.Q)
+    #DeComenta linia anterior y comenta la siguiente si deseas printear en formato numpy matrix
+    # esto imprime formato original (nested dictionary)
+    print(aichess.Q)
 
     # This is to save the initial q-table to a file 
     #aichess.saveQTableToFile('initialQtable.txt', aichess.Q)
