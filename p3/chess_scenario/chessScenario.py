@@ -6,6 +6,8 @@ import chess
 import numpy as np
 import sys
 import heapq
+import random
+import json
 
 from itertools import permutations
 
@@ -38,14 +40,21 @@ class chesssScenario():
 
 
         # Nuevos parametros necesarios para aplicar Q-Learning 
-        self.actions = 12
+        self.total_episodes = 0
+        self.actions = 8 + 28
         self.num_filas = 8
         self.num_columnas = 8
-        self.alpha = 0.1  # Tasa de aprendizaje
+        self.alpha = 0.5  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
-        self.epsilon = 0.1  # Exploración-Explotación trade-off
-        self.Q = np.zeros((self.num_filas * self.num_columnas, self.actions)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
-
+        self.epsilon = 0.3  # Exploración-Explotación trade-off
+        # Our q-table is of format {state: {action1: q_value, action2: q_value}}
+        self.Q= {}
+        for row in range(self.num_filas):
+            for col in range(self.num_columnas):
+                state_key = tuple(map(tuple, self.currentStateW))
+                self.Q[state_key] = {}
+                for action in range(self.actions):
+                    self.Q[state_key][action] = 0
 
     def getCurrentState(self):
         return self.myCurrentStateW
@@ -75,91 +84,6 @@ class chesssScenario():
 
         isSameState = isSameState1 and isSameState2
         return isSameState
-
-    def isVisited(self, mystate):
-
-        if (len(self.listVisitedStates) > 0):
-            perm_state = list(permutations(mystate))
-
-            isVisited = False
-            for j in range(len(perm_state)):
-
-                for k in range(len(self.listVisitedStates)):
-
-                    if self.isSameState(list(perm_state[j]), self.listVisitedStates[k]):
-                        isVisited = True
-
-            return isVisited
-        else:
-            return False
-
-    def reconstructPath(self, state, depth):
-        # When we found the solution, we obtain the path followed to get to this        
-        for i in range(depth):
-            self.pathToTarget.insert(0,state)
-            #Per cada node, mirem quin és el seu pare
-            state = self.dictPath[str(state)][0]
-
-        self.pathToTarget.insert(0,state)
-
-    def canviarEstat(self, start, to):
-        # We check which piece has been moved from one state to the next
-        if start[0] == to[0]:
-            fitxaMogudaStart=1
-            fitxaMogudaTo = 1
-        elif start[0] == to[1]:
-            fitxaMogudaStart = 1
-            fitxaMogudaTo = 0
-        elif start[1] == to[0]:
-            fitxaMogudaStart = 0
-            fitxaMogudaTo = 1
-        else:
-            fitxaMogudaStart = 0
-            fitxaMogudaTo = 0
-        # move the piece changed
-        self.chess.moveSim(start[fitxaMogudaStart], to[fitxaMogudaTo])
-
-    def movePieces(self, start, depthStart, to, depthTo):
-        
-        # To move from one state to the next for BFS we will need to find
-        # the state in common, and then move until the node 'to'
-        moveList = []
-        # We want that the depths are equal to find a common ancestor
-        nodeTo = to
-        nodeStart = start
-        # if the depth of the node To is larger than that of start, 
-        # we pick the ancesters of the node until being at the same
-        # depth
-        while(depthTo > depthStart):
-            moveList.insert(0,to)
-            nodeTo = self.dictPath[str(nodeTo)][0]
-            depthTo-=1
-        # Analogous to the previous case, but we trace back the ancestors
-        #until the node 'start'
-        while(depthStart > depthTo):
-            ancestreStart = self.dictPath[str(nodeStart)][0]
-            # We move the piece the the parerent state of nodeStart
-            self.canviarEstat(nodeStart, ancestreStart)
-            nodeStart = ancestreStart
-            depthStart -= 1
-
-        moveList.insert(0,nodeTo)
-        # We seek for common node
-        while nodeStart != nodeTo:
-            ancestreStart = self.dictPath[str(nodeStart)][0]
-            # Move the piece the the parerent state of nodeStart
-            self.canviarEstat(nodeStart,ancestreStart)
-            # pick the parent of nodeTo
-            nodeTo = self.dictPath[str(nodeTo)][0]
-            # store in the list
-            moveList.insert(0,nodeTo)
-            nodeStart = ancestreStart
-        # Move the pieces from the node in common
-        # until the node 'to'
-        for i in range(len(moveList)):
-            if i < len(moveList) - 1:
-                self.canviarEstat(moveList[i],moveList[i+1])
-
 
     def h(self,state):
         
@@ -250,31 +174,23 @@ class chesssScenario():
             currentState = current_state
             gValueCurrentState = gValue_current_state
         return False
-
-    def translate(s):
-        """
-        Translates traditional board coordinates of chess into list indices
-        """
-
-        try:
-            row = int(s[0])
-            col = s[1]
-            if row < 1 or row > 8:
-                print(s[0] + "is not in the range from 1 - 8")
-                return None
-            if col < 'a' or col > 'h':
-                print(s[1] + "is not in the range from a - h")
-                return None
-            dict = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
-            return (8 - row, dict[col])
-        except:
-            print(s + "is not in the format '[number][letter]'")
-            return None
         
 # ---------------------------------------------------------------------------------------------------- #
 # ---------------------------------------- Q-LEARNING ------------------------------------------------ #
 # ---------------------------------------------------------------------------------------------------- #
 
+
+    def newBoardSim(self, listStates):
+        # We create a  new boardSim
+        TA = np.zeros((8, 8))
+        # load initial state
+        # white pieces
+        TA[7][0] = 2
+        TA[7][4] = 6
+        # black pieces
+        TA[0][4] = 12
+
+        self.chess.newBoardSim(TA)
     
     def getPieceState(self, state, piece):
         pieceState = None
@@ -286,81 +202,162 @@ class chesssScenario():
 
     def es_accion_valida(self, state, action):
 
-        tower_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
-        king_position = self.getPieceState(state, 6)
-
-        new_state = []
-        #KING
-        if action == 0:  # Move up
-            new_state = [(tower_position), [king_position[0] - 1, king_position[1], king_position[2]]]
-        elif action == 1:  # Move down
-            new_state = [(tower_position), [king_position[0] + 1, king_position[1], king_position[2]]]
-        elif action == 2:  # Move left
-            new_state = [(tower_position), [king_position[0], king_position[1] - 1, king_position[2]]]
-        elif action == 3:  # Move right
-            new_state = [(tower_position), [king_position[0], king_position[1] + 1, king_position[2]]]
-        elif action == 4:  # Move diagonally up-left
-            new_state = [(tower_position), [king_position[0] - 1, king_position[1] - 1, king_position[2]]]
-        elif action == 5:  # Move diagonally up-right
-            new_state = [(tower_position), [king_position[0] - 1, king_position[1] + 1, king_position[2]]]
-        elif action == 6:  # Move diagonally down-left
-            new_state = [(tower_position), [king_position[0] + 1, king_position[1] - 1, king_position[2]]]
-        elif action == 7:  # Move diagonally down-right
-            new_state = [(tower_position), [king_position[0] + 1, king_position[1] + 1, king_position[2]]]
-        #TOWER
-        elif action == 8: #Move UP
-            new_state = [[tower_position[0]-1, tower_position[1], tower_position[2]], (king_position)]
-        elif action == 9: #Move Down
-            new_state = [[tower_position[0]+1, tower_position[1], tower_position[2]], (king_position)]
-        elif action == 10: #Move Left
-            new_state = [[tower_position[0], tower_position[1]-1, tower_position[2]], (king_position)]
-        elif action == 11: #Move Right
-            new_state = [[tower_position[0]-1, tower_position[1]+1, tower_position[2]], (king_position)]
-        else:
-            new_state = state
-
-        new_tower_position = self.getPieceState(new_state, 2)
-        new_king_position = self.getPieceState(new_state, 6)
         tower_position = self.getPieceState(state, 2)
         king_position = self.getPieceState(state, 6)
+        black_king = [[0,4,12]]
+        new_state = []
 
-        if 8 <= action <= 11:
-            if 0 <= new_tower_position[0] <= 7 and 0 <= new_tower_position[1] <= 7:
-                correction_state = [(new_tower_position), (king_position)]
-            else:
-                correction_state = [(tower_position), (king_position)]
-        elif 0 <= action <= 7:
-            if 0 <= new_king_position[0] <= 7 and 0 <= new_king_position[1] <= 7:
-                correction_state = [(tower_position), (new_king_position)]
-            else:
-                correction_state = [(tower_position), (king_position)]
+        if 0 <= action <=7:
+            #KING
+            if action == 0:  # Move up
+                new_state = [(tower_position), [king_position[0] - 1, king_position[1], king_position[2]]]
+            elif action == 1:  # Move down
+                new_state = [(tower_position), [king_position[0] + 1, king_position[1], king_position[2]]]
+            elif action == 2:  # Move left
+                new_state = [(tower_position), [king_position[0], king_position[1] - 1, king_position[2]]]
+            elif action == 3:  # Move right
+                new_state = [(tower_position), [king_position[0], king_position[1] + 1, king_position[2]]]
+            elif action == 4:  # Move diagonally up-left
+                new_state = [(tower_position), [king_position[0] - 1, king_position[1] - 1, king_position[2]]]
+            elif action == 5:  # Move diagonally up-right
+                new_state = [(tower_position), [king_position[0] - 1, king_position[1] + 1, king_position[2]]]
+            elif action == 6:  # Move diagonally down-left
+                new_state = [(tower_position), [king_position[0] + 1, king_position[1] - 1, king_position[2]]]
+            elif action == 7:  # Move diagonally down-right
+                new_state = [(tower_position), [king_position[0] + 1, king_position[1] + 1, king_position[2]]]
         else:
-            correction_state = state
+            #TOWER
+            #UP MOVEMENTS
+            if action == 8: #Move UP 1
+                new_state = [[tower_position[0]-1, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 9: #Move UP 2
+                new_state = [[tower_position[0]-2, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 10: #Move UP 3
+                new_state = [[tower_position[0]-3, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 11: #Move UP 4
+                new_state = [[tower_position[0]-4, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 12: #Move UP 5
+                new_state = [[tower_position[0]-5, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 13: #Move UP 6
+                new_state = [[tower_position[0]-6, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 14: #Move UP 7
+                new_state = [[tower_position[0]-7, tower_position[1], tower_position[2]], (king_position)]
 
-        return correction_state
+            # DOWN MOVEMENTS
+            elif action == 15: #Move Down 1
+                new_state = [[tower_position[0]+1, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 16: #Move Down 2
+                new_state = [[tower_position[0]+2, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 17: #Move Down 3
+                new_state = [[tower_position[0]+3, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 18: #Move Down 4
+                new_state = [[tower_position[0]+4, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 19: #Move Down 5
+                new_state = [[tower_position[0]+5, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 20: #Move Down 6
+                new_state = [[tower_position[0]+6, tower_position[1], tower_position[2]], (king_position)]
+            elif action == 21: #Move Down 7
+                new_state = [[tower_position[0]+7, tower_position[1], tower_position[2]], (king_position)]
+
+            # LEFT MOVEMENTS
+            elif action == 22: #Move Left 1
+                new_state = [[tower_position[0], tower_position[1]-1, tower_position[2]], (king_position)]
+            elif action == 23: #Move Left 2
+                new_state = [[tower_position[0], tower_position[1]-2, tower_position[2]], (king_position)]
+            elif action == 24: #Move Left 3
+                new_state = [[tower_position[0], tower_position[1]-3, tower_position[2]], (king_position)]
+            elif action == 25: #Move Left 4
+                new_state = [[tower_position[0], tower_position[1]-4, tower_position[2]], (king_position)]
+            elif action == 26: #Move Left 5
+                new_state = [[tower_position[0], tower_position[1]-5, tower_position[2]], (king_position)]
+            elif action == 27: #Move Left 6
+                new_state = [[tower_position[0], tower_position[1]-6, tower_position[2]], (king_position)]
+            elif action == 28: #Move Left 7
+                new_state = [[tower_position[0], tower_position[1]-7, tower_position[2]], (king_position)]
+
+            # RIGHT MOVEMENTS
+            elif action == 29: #Move Right 1
+                new_state = [[tower_position[0], tower_position[1]+1, tower_position[2]], (king_position)]
+            elif action == 30: #Move Right 2
+                new_state = [[tower_position[0], tower_position[1]+2, tower_position[2]], (king_position)]
+            elif action == 31: #Move Right 3
+                new_state = [[tower_position[0], tower_position[1]+3, tower_position[2]], (king_position)]
+            elif action == 32: #Move Right 4
+                new_state = [[tower_position[0], tower_position[1]+4, tower_position[2]], (king_position)]
+            elif action == 33: #Move Right 5
+                new_state = [[tower_position[0], tower_position[1]+5, tower_position[2]], (king_position)]
+            elif action == 34: #Move Right 6
+                new_state = [[tower_position[0], tower_position[1]+6, tower_position[2]], (king_position)]
+            elif action == 35: #Move Right 7
+                new_state = [[tower_position[0], tower_position[1]+7, tower_position[2]], (king_position)]
+            else:
+                new_state = state
+
+        # check if any of the moving pieces has the same position as black piece.
+        if new_state[0][0] == black_king[0][0] and new_state[0][1] == black_king[0][1]:
+            return [(tower_position), (king_position)]
+        #print("De estado: ", state, " con action ", action, " al estado ", correction_state )
+
+        return new_state    
+    
+    def kingPosition(self, state):
+
+        king_pos = self.getPieceState(state, 6)
+        return king_pos[0], king_pos[1]
+
+    def towerPosition(self, state):
+
+        tower_pos = self.getPieceState(state, 2)
+        return tower_pos[0], tower_pos[1]
+    
+    def state_to_tuple(self, state):
+        return tuple(map(tuple, state))
+    
+    def getMovement(self, state, nextState):
+        # Given a state and a successor state, return the postiion of the piece that has been moved in both states
+        pieceState = None
+        pieceNextState = None
+        for piece in state:
+            if piece not in nextState:
+                movedPiece = piece[2]
+                pieceNext = self.getPieceState(nextState, movedPiece)
+                if pieceNext != None:
+                    pieceState = piece
+                    pieceNextState = pieceNext
+                    break
+
+        return [pieceState, pieceNextState]
 
     def selection_action(self, stateActual):
         # Seleccionar una acción basada en epsilon-greedy
         if np.random.rand() < self.epsilon:
-
-            accion = np.random.randint(self.actions)  # Exploración aleatoria
+            # Exploración aleatoria
+            accion = np.random.randint(self.actions)
         else:
-            kingPosX, kingPosY = self.kingPosition(stateActual)
-            kingState = self.obtener_estado(kingPosX, kingPosY)
-
-            towerPosX, towerPosY = self.towerPosition(stateActual)
-            towerState = self.obtener_estado(towerPosX, towerPosY)
-
-            towerBestAction = np.max(self.Q[towerState])
-            kingBestAction = np.max(self.Q[kingState])
-
-            if towerBestAction > kingBestAction:
-                #We add +8 because its shared list
-                accion = np.argmax(self.Q[towerState, 8:]) + 8
-            else:
-                accion = np.argmax(self.Q[kingState, :8])
+            # Explote
+            state = self.state_to_tuple(stateActual)
+            q_values = self.Q[state]
+            accion = max(q_values, key=q_values.get)
         return accion
 
+    def selection_action_drunken(self, stateActual, intended_action_probability=0.9):
+        # Seleccionar una acción basada en epsilon-greedy
+        if np.random.rand() < self.epsilon:
+            # Exploración aleatoria
+            accion = np.random.randint(self.actions)
+        else:
+            # Explote
+            state = self.state_to_tuple(stateActual)
+            q_values = self.Q[state]
+            accion = max(q_values, key=q_values.get)
+        
+        # Randomness
+        if np.random.rand() > intended_action_probability:
+            # Take a random action from all other possibilities
+            all_actions = list(range(self.actions))
+            all_actions.remove(accion)  # Remove the intended action
+            accion = np.random.choice(all_actions)
+        return accion
 
     def isCheckMate(self, mystate):
         # list of possible check mate states
@@ -373,7 +370,6 @@ class chesssScenario():
 
         return False
 
-
     def reward(self, state):
         # si checkmante de blancas, recompensa 100
         if self.isCheckMate(state):
@@ -382,18 +378,154 @@ class chesssScenario():
         else:
             return -1
 
-    def kingPosition(self, state):
-        king_pos = self.getPieceState(state, 6)
+    def sensibleReward(self, state):
+        # si checkmante de blancas, recompensa 100
+        if self.isCheckMate(state):
+            return 100
+        # en resto de posiciones usamos lo que proporciona la heurísica
+        else:
+            return -1 *self.h(state)
 
-        return king_pos[0], king_pos[1]
+    def q_learning_Chess(self, firstState, sensibleReward, drunken_sailor):
+        num_episodios = 2000
+        umbral_convergencia = 0.0001
+        convergencias = 0
+        num_convergencias_necesarias = 5
 
-    def towerPosition(self, state):
-        tower_pos = self.getPieceState(state, 2)
+        for episodio in range(num_episodios):
+            #print("episodi: ", episodio)
+            currentState = firstState
+            self.newBoardSim(currentState)
+            acciones = []
 
-        return tower_pos[0], tower_pos[1]
+            while not self.isCheckMate(currentState):
+                # select an action. Depends if drunken sailor or normal case(indicated through parameter of this function)
+                action = self.selection_action_drunken(currentState) if drunken_sailor else self.selection_action(currentState)
 
-    def obtener_estado(self, fila, columna):
-        return fila * self.num_columnas + columna
+                nextPossibleStates = self.getListNextStatesW(currentState)
+                nextState = self.es_accion_valida(currentState,action)
+                same_next_State = nextState[::-1] 
+                if ((nextState not in nextPossibleStates) and (same_next_State not in nextPossibleStates)) or nextState == currentState:
+                    continue
+                # depending of which type of reward specified through parameter, one or the other will consideres
+                recompensa = self.sensibleReward(nextState) if sensibleReward else self.reward(nextState)
+                curr = self.state_to_tuple(currentState)
+                nx = self.state_to_tuple(nextState)
+                # this is used in case we want to print the actions
+                acciones.append((action,currentState,nextState,recompensa))
+                # Initialize nextState in Q-table if not present
+                if nx not in self.Q:
+                    self.Q[nx] = {a: 0 for a in range(self.actions)}
+                # update the q_table 
+                self.Q[curr][action] += self.alpha * (recompensa + self.gamma * max(self.Q[nx].values()) - self.Q[curr][action])
+                # make the movementin the board to the next state
+                movement = self.getMovement(currentState,nextState)
+                self.chess.moveSim(movement[0], movement[1])
+                # update the current state for the next iteration
+                currentState = nextState
+            
+            if episodio % 100 == 0:
+                print("\nQ-TABLE AT EPISODE ", episodio)
+                # print en formato array/matriz
+                self.printQTableAsMatrix(self.Q)
+                #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+                #print(self.Q)
+                #si deseas guardar esta q-table en un fichero
+                #self.saveQTableToFile(f'qtableEpisode{episodio}.txt', self.Q)
+            
+            if episodio > 0:
+                if self.has_converged(self.Q, self.Q_anterior, umbral_convergencia):
+                    convergencias += 1
+                    if convergencias >= num_convergencias_necesarias:
+                        self.total_episodes = episodio
+                        break
+            else:
+                convergencias = 0
+
+            # Guardar la Q-table del episodio actual para comparar con la siguiente
+            self.Q_anterior = {state: self.Q[state].copy() for state in self.Q}
+
+        # Imprimir la Q-table final
+        print("\nQ-table final:")
+        self.printQTableAsMatrix(self.Q)
+        print()
+        #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+        #print(self.Q)
+        #self.saveQTableToFile('finalQtable.txt', self.Q)
+
+        print(f"\nConvergence achieved in {episodio} episodes.\n")
+        # Print actions that lead to checkmate
+        for accion, current_coords, next_coords, reward in acciones:
+            self.print_action(accion, current_coords, next_coords, reward)
+
+    def has_converged(self, Q, Q_anterior, umbral_convergencia):
+        max_diff = 0
+        for state in Q:
+            for action in Q[state]:
+                if state in Q_anterior and action in Q_anterior[state]:
+                    diff = abs(Q[state][action] - Q_anterior[state][action])
+                    max_diff = max(max_diff, diff)
+                else:
+                    max_diff = max(max_diff, abs(Q[state][action]))
+        return max_diff < umbral_convergencia  
+
+    def print_best_path(self, start_state):
+        self.newBoardSim(start_state)
+        current_state = start_state
+        path = [current_state]
+        path_found = True
+
+        while not self.isCheckMate(current_state):
+            state_key = self.state_to_tuple(current_state) 
+            if state_key not in self.Q:
+                break
+            # Get the action with the highest Q-value for the current state
+            best_action = max(self.Q[state_key], key=self.Q[state_key].get)
+            next_state = self.es_accion_valida(current_state,best_action)
+            if current_state != next_state:  
+                movement = self.getMovement(current_state, next_state)
+                self.chess.moveSim(movement[0], movement[1])
+            else:
+                path_found = False
+                print("Could not trace path, agent might need further learning. !!Hint!! Consider retrying with different parametres. ")
+                break
+
+            current_state = next_state
+            path.append(current_state)
+
+        if path_found:
+            # Print the final path
+            print("\nBest path to checkmate is:")
+            print(path)  
+
+    def printQTableAsMatrix(self,Q):
+
+        # Create mappings for states and actions
+        state_to_index = {state: i for i, state in enumerate(sorted(Q.keys()))}
+        action_to_index = {action: j for j, action in enumerate(sorted(set(action for actions in Q.values() for action in actions)))}
+
+        # Initialize the Q-table as matrix
+        num_states = len(state_to_index)
+        num_actions = len(action_to_index)
+        Q_matrix = np.zeros((num_states, num_actions))
+
+        # Fill the matrix with Q-values
+        for state, actions in Q.items():
+            state_idx = state_to_index[state]
+            for action, q_value in actions.items():
+                action_idx = action_to_index[action]
+                Q_matrix[state_idx, action_idx] = q_value
+
+        # Print the Q-table in matrix format
+        print("\nQ-Table:")
+        print(Q_matrix)
+
+    # This function is to save the q-table which is in dictonary format in a file
+    def saveQTableToFile(self,filename, Q):
+        Q_serializable = {str(state): actions for state, actions in Q.items()}
+        # Save the Q-table to a text file
+        with open(filename, 'w') as file:
+            json.dump(Q_serializable, file, indent=4)
 
     def print_action(self, action,current_coords, next_coords, reward):
         # Imprimir la acción y la recompensa
@@ -413,81 +545,15 @@ class chesssScenario():
             print(f"(Diagonal Abajo Izq King) --> {next_coords}   Reward: {reward}")
         elif action == 7:
             print(f"(Diagonal Abajo Der King) --> {next_coords}   Reward: {reward}")
-        elif action == 8:
+        elif action == 8 or action == 9 or action == 19 or action == 11 or action == 12 or action == 13 or action == 14:
             print(f"(Arriba Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 9:
+        elif action == 15 or action == 16 or action == 17 or action == 18 or action == 19 or action == 20 or action == 21:
             print(f"(Abajo Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 10:
+        elif action == 22 or action == 23 or action == 24 or action == 25 or action == 26 or action == 27 or action == 28:
             print(f"(Izquierda Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 11:
+        elif action == 29 or action == 30 or action == 31 or action == 32 or action == 33 or action == 34 or action == 35:
             print(f"(Derecha Tower) --> {next_coords}   Reward: {reward}")
 
-    def q_learning_Chess(self, firstState):
-        num_episodios = 1000
-        umbral_convergencia = 0.0001
-        convergencias = 0
-        num_convergencias_necesarias = 5
-
-        for episodio in range(num_episodios):
-            state_actual = firstState
-            acciones = []
-
-            # mientras no sea estado terminal
-            while not self.isCheckMate(state_actual):
-                kingPosX, kingPosY = self.kingPosition(state_actual)
-                towerPosX, towerPosY = self.towerPosition(state_actual)
-                accion = self.selection_action(state_actual)
-                new_position = self.es_accion_valida(state_actual, accion)
-                recompensa = self.reward(new_position)
-                #If its action of King:
-                if 0 <= accion <= 7:
-                    # Take the new position of king
-                    newkingPosX, newkingPosY = self.kingPosition(new_position)
-                    # Take the state of king
-                    state_king = self.obtener_estado(kingPosX, kingPosY)
-                    # Calculate the new state
-                    new_state_king = self.obtener_estado(newkingPosX, newkingPosY)
-                    #Add the movement for show the actions
-                    acciones.append((accion, (kingPosX, kingPosY), (newkingPosX, newkingPosY), recompensa))
-                    # Calculate the Q
-                    self.Q[state_king, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[new_state_king]) - self.Q[state_king, accion])
-                #If its action of Tower:
-                elif 8 <= accion <= 11:
-                    #Take the new position of tower
-                    newTowerPosX, newTowerPosY = self.towerPosition(new_position)
-                    #Take the state of tower
-                    state_Tower = self.obtener_estado(towerPosX, towerPosY)
-                    #Calculate the new state
-                    new_state_tower = self.obtener_estado(newTowerPosX, newTowerPosY)
-                    #Add the movement for show the actions
-                    acciones.append((accion, (towerPosX, towerPosY), (newTowerPosX, newTowerPosY), recompensa))
-                    #Calculate the Q
-                    self.Q[state_Tower, accion] += self.alpha * (recompensa + self.gamma * np.max(self.Q[new_state_tower]) - self.Q[state_Tower, accion])
-
-                # Actualizar la posición actual
-                state_actual = new_position
-
-
-            if episodio % 100 == 0:
-                print("Q-TABLE AL EPISODI ", episodio)
-                print(self.Q)
-            # Verificar convergencia
-            if episodio > 0 and np.max(np.abs(self.Q - self.Q_anterior)) < umbral_convergencia:
-                convergencias += 1
-                if convergencias >= num_convergencias_necesarias:
-                    print(f"Convergencia alcanzada en el episodio {episodio}. Imprimiendo acciones:\n")
-                    for accion, current_coords, next_coords, reward in acciones:
-                        self.print_action(accion, current_coords, next_coords, reward)
-                    break
-            else:
-                convergencias = 0
-
-            # Guardar la Q-table del episodio actual para comparar con la siguiente
-            self.Q_anterior = np.copy(self.Q)
-
-        # Imprimir la Q-table final
-        print("\nQ-table final:")
-        print(self.Q)
 
 if __name__ == "__main__":
 
@@ -510,12 +576,28 @@ if __name__ == "__main__":
     print("printing board")
     aichess.chess.boardSim.print_board()
 
-
-    print("Q-table:\n")
-    print(aichess.Q)
-
     # get list of next states for current state
-    print("current State",currentState,"\n")
+    print("current State ",currentState,"\n")
 
-    aichess.q_learning_Chess(currentState)
+    print("Q-table start:\n")
+    aichess.printQTableAsMatrix(aichess.Q)
+    #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+    #print(aichess.Q)
+
+    # This is to save the initial q-table to a file 
+    #aichess.saveQTableToFile('initialQtable.txt', aichess.Q)
+
+    # For section (2a) use sensibleReward = False
+    sensibleReward = False
+    # For section (2b) use sensibleReward = True
+    #sensibleReward = True
+
+    # For (2c) use drunken_sailor = True
+    drunken_sailor = False
+    #drunken_sailor = True
+    aichess.q_learning_Chess(currentState,sensibleReward,drunken_sailor)
+    aichess.print_best_path(currentState)
+
+    print("\nFinal board state\n")
+    aichess.chess.boardSim.print_board()
 
