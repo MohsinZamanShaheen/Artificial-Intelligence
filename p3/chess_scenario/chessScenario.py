@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import heapq
 import random
+import json
 
 from itertools import permutations
 
@@ -43,10 +44,10 @@ class chesssScenario():
         self.actions = 8 + 28
         self.num_filas = 8
         self.num_columnas = 8
-        self.alpha = 0.4  # Tasa de aprendizaje
+        self.alpha = 0.5  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
-        self.epsilon = 0.4  # Exploración-Explotación trade-off
-        #self.Q = np.zeros((self.num_filas * self.num_columnas, self.actions)) # Tablero chess es 8x8 =64 por cada pieza(torre blanca y rey blanca)
+        self.epsilon = 0.3  # Exploración-Explotación trade-off
+        # Our q-table is of format {state: {action1: q_value, action2: q_value}}
         self.Q= {}
         for row in range(self.num_filas):
             for col in range(self.num_columnas):
@@ -201,7 +202,7 @@ class chesssScenario():
 
     def es_accion_valida(self, state, action):
 
-        tower_position = self.getPieceState(state, 2) # cojo posicion de torre a efectos de testing
+        tower_position = self.getPieceState(state, 2)
         king_position = self.getPieceState(state, 6)
         black_king = [[0,4,12]]
         new_state = []
@@ -292,73 +293,21 @@ class chesssScenario():
             else:
                 new_state = state
 
-        new_tower_position = self.getPieceState(new_state, 2)
-        new_king_position = self.getPieceState(new_state, 6)
-        '''
-        if 8 <= action <= 35:
-            if 0 <= new_tower_position[0] <= 7 and 0 <= new_tower_position[1] <= 7:
-                correction_state = [(new_tower_position), (king_position)]
-            else:
-                correction_state = [(tower_position), (king_position)]
-        elif 0 <= action <= 7:
-            if 0 <= new_king_position[0] <= 7 and 0 <= new_king_position[1] <= 7:
-                correction_state = [(tower_position), (new_king_position)]
-            else:
-                correction_state = [(tower_position), (king_position)]
-        else:
-            correction_state = state
-        '''
+        # check if any of the moving pieces has the same position as black piece.
         if new_state[0][0] == black_king[0][0] and new_state[0][1] == black_king[0][1]:
             return [(tower_position), (king_position)]
         #print("De estado: ", state, " con action ", action, " al estado ", correction_state )
 
-        return new_state
-
-    def print_best_path(self, start_state):
-        self.newBoardSim(start_state)
-        current_state = start_state
-        path = [current_state]
-        path_found = True
-
-        while not self.isCheckMate(current_state):
-            state_key = self.state_to_tuple(current_state)
-            #print(self.q_table[state_key])
-            
-            if state_key not in self.Q:
-                break
-            
-            # Get the action with the highest Q-value for the current state
-            best_action = max(self.Q[state_key], key=self.Q[state_key].get)
-            next_state = self.es_accion_valida(current_state,best_action)
-            if current_state != next_state:  
-                movement = self.getMovement(current_state, next_state)
-                self.chess.moveSim(movement[0], movement[1])
-                #self.chess.boardSim.print_board()
-                
-            else:
-                path_found = False
-                print("No path found! Retry with different parametres. Agent needs more learning.")
-                break
-
-
-            current_state = next_state
-            path.append(current_state)
-
-        # If we have found the path, we print it
-        if path_found:
-            # Print the final path
-            print("\nBest path to checkmate:")
-            print(path)
-    
+        return new_state    
     
     def kingPosition(self, state):
-        king_pos = self.getPieceState(state, 6)
 
+        king_pos = self.getPieceState(state, 6)
         return king_pos[0], king_pos[1]
 
     def towerPosition(self, state):
-        tower_pos = self.getPieceState(state, 2)
 
+        tower_pos = self.getPieceState(state, 2)
         return tower_pos[0], tower_pos[1]
     
     def state_to_tuple(self, state):
@@ -381,7 +330,6 @@ class chesssScenario():
 
     def selection_action(self, stateActual):
         # Seleccionar una acción basada en epsilon-greedy
-
         if np.random.rand() < self.epsilon:
             # Exploración aleatoria
             accion = np.random.randint(self.actions)
@@ -392,6 +340,24 @@ class chesssScenario():
             accion = max(q_values, key=q_values.get)
         return accion
 
+    def selection_action_drunken(self, stateActual, intended_action_probability=0.9):
+        # Seleccionar una acción basada en epsilon-greedy
+        if np.random.rand() < self.epsilon:
+            # Exploración aleatoria
+            accion = np.random.randint(self.actions)
+        else:
+            # Explote
+            state = self.state_to_tuple(stateActual)
+            q_values = self.Q[state]
+            accion = max(q_values, key=q_values.get)
+        
+        # Randomness
+        if np.random.rand() > intended_action_probability:
+            # Take a random action from all other possibilities
+            all_actions = list(range(self.actions))
+            all_actions.remove(accion)  # Remove the intended action
+            accion = np.random.choice(all_actions)
+        return accion
 
     def isCheckMate(self, mystate):
         # list of possible check mate states
@@ -410,44 +376,62 @@ class chesssScenario():
             return 100
         # en resto de posiciones -1
         else:
+            return -1
+
+    def sensibleReward(self, state):
+        # si checkmante de blancas, recompensa 100
+        if self.isCheckMate(state):
+            return 100
+        # en resto de posiciones usamos lo que proporciona la heurísica
+        else:
             return -1 *self.h(state)
 
-    def q_learning_Chess(self, firstState):
-        num_episodios = 1000
+    def q_learning_Chess(self, firstState, sensibleReward, drunken_sailor):
+        num_episodios = 2000
         umbral_convergencia = 0.0001
         convergencias = 0
         num_convergencias_necesarias = 5
 
         for episodio in range(num_episodios):
-            print("episodi: ", episodio)
+            #print("episodi: ", episodio)
             currentState = firstState
             self.newBoardSim(currentState)
             acciones = []
-            end = False
 
             while not self.isCheckMate(currentState):
-                
-                action = self.selection_action(currentState)
+                # select an action. Depends if drunken sailor or normal case(indicated through parameter of this function)
+                action = self.selection_action_drunken(currentState) if drunken_sailor else self.selection_action(currentState)
+
                 nextPossibleStates = self.getListNextStatesW(currentState)
                 nextState = self.es_accion_valida(currentState,action)
                 same_next_State = nextState[::-1] 
                 if ((nextState not in nextPossibleStates) and (same_next_State not in nextPossibleStates)) or nextState == currentState:
                     continue
-                recompensa = self.reward(nextState)
+                # depending of which type of reward specified through parameter, one or the other will consideres
+                recompensa = self.sensibleReward(nextState) if sensibleReward else self.reward(nextState)
                 curr = self.state_to_tuple(currentState)
                 nx = self.state_to_tuple(nextState)
+                # this is used in case we want to print the actions
                 acciones.append((action,currentState,nextState,recompensa))
                 # Initialize nextState in Q-table if not present
                 if nx not in self.Q:
                     self.Q[nx] = {a: 0 for a in range(self.actions)}
+                # update the q_table 
                 self.Q[curr][action] += self.alpha * (recompensa + self.gamma * max(self.Q[nx].values()) - self.Q[curr][action])
+                # make the movementin the board to the next state
                 movement = self.getMovement(currentState,nextState)
                 self.chess.moveSim(movement[0], movement[1])
+                # update the current state for the next iteration
                 currentState = nextState
             
-            if episodio % 500 == 0:
-                print("Q-TABLE AL EPISODI ", episodio)
-                print(self.Q)
+            if episodio % 100 == 0:
+                print("\nQ-TABLE AT EPISODE ", episodio)
+                # print en formato array/matriz
+                self.printQTableAsMatrix(self.Q)
+                #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+                #print(self.Q)
+                #si deseas guardar esta q-table en un fichero
+                #self.saveQTableToFile(f'qtableEpisode{episodio}.txt', self.Q)
             
             if episodio > 0:
                 if self.has_converged(self.Q, self.Q_anterior, umbral_convergencia):
@@ -460,13 +444,19 @@ class chesssScenario():
 
             # Guardar la Q-table del episodio actual para comparar con la siguiente
             self.Q_anterior = {state: self.Q[state].copy() for state in self.Q}
-            
 
         # Imprimir la Q-table final
         print("\nQ-table final:")
-        print(self.Q)
+        self.printQTableAsMatrix(self.Q)
+        print()
+        #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+        #print(self.Q)
+        #self.saveQTableToFile('finalQtable.txt', self.Q)
 
-        print(f"Convergence achieved in {episodio} episodes.\n")
+        print(f"\nConvergence achieved in {episodio} episodes.\n")
+        # Print actions that lead to checkmate
+        for accion, current_coords, next_coords, reward in acciones:
+            self.print_action(accion, current_coords, next_coords, reward)
 
     def has_converged(self, Q, Q_anterior, umbral_convergencia):
         max_diff = 0
@@ -477,7 +467,65 @@ class chesssScenario():
                     max_diff = max(max_diff, diff)
                 else:
                     max_diff = max(max_diff, abs(Q[state][action]))
-        return max_diff < umbral_convergencia        
+        return max_diff < umbral_convergencia  
+
+    def print_best_path(self, start_state):
+        self.newBoardSim(start_state)
+        current_state = start_state
+        path = [current_state]
+        path_found = True
+
+        while not self.isCheckMate(current_state):
+            state_key = self.state_to_tuple(current_state) 
+            if state_key not in self.Q:
+                break
+            # Get the action with the highest Q-value for the current state
+            best_action = max(self.Q[state_key], key=self.Q[state_key].get)
+            next_state = self.es_accion_valida(current_state,best_action)
+            if current_state != next_state:  
+                movement = self.getMovement(current_state, next_state)
+                self.chess.moveSim(movement[0], movement[1])
+            else:
+                path_found = False
+                print("Could not trace path, agent might need further learning. !!Hint!! Consider retrying with different parametres. ")
+                break
+
+            current_state = next_state
+            path.append(current_state)
+
+        if path_found:
+            # Print the final path
+            print("\nBest path to checkmate is:")
+            print(path)  
+
+    def printQTableAsMatrix(self,Q):
+
+        # Create mappings for states and actions
+        state_to_index = {state: i for i, state in enumerate(sorted(Q.keys()))}
+        action_to_index = {action: j for j, action in enumerate(sorted(set(action for actions in Q.values() for action in actions)))}
+
+        # Initialize the Q-table as matrix
+        num_states = len(state_to_index)
+        num_actions = len(action_to_index)
+        Q_matrix = np.zeros((num_states, num_actions))
+
+        # Fill the matrix with Q-values
+        for state, actions in Q.items():
+            state_idx = state_to_index[state]
+            for action, q_value in actions.items():
+                action_idx = action_to_index[action]
+                Q_matrix[state_idx, action_idx] = q_value
+
+        # Print the Q-table in matrix format
+        print("\nQ-Table:")
+        print(Q_matrix)
+
+    # This function is to save the q-table which is in dictonary format in a file
+    def saveQTableToFile(self,filename, Q):
+        Q_serializable = {str(state): actions for state, actions in Q.items()}
+        # Save the Q-table to a text file
+        with open(filename, 'w') as file:
+            json.dump(Q_serializable, file, indent=4)
 
     def print_action(self, action,current_coords, next_coords, reward):
         # Imprimir la acción y la recompensa
@@ -497,13 +545,13 @@ class chesssScenario():
             print(f"(Diagonal Abajo Izq King) --> {next_coords}   Reward: {reward}")
         elif action == 7:
             print(f"(Diagonal Abajo Der King) --> {next_coords}   Reward: {reward}")
-        elif action == 8:
+        elif action == 8 or action == 9 or action == 19 or action == 11 or action == 12 or action == 13 or action == 14:
             print(f"(Arriba Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 9:
+        elif action == 15 or action == 16 or action == 17 or action == 18 or action == 19 or action == 20 or action == 21:
             print(f"(Abajo Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 10:
+        elif action == 22 or action == 23 or action == 24 or action == 25 or action == 26 or action == 27 or action == 28:
             print(f"(Izquierda Tower) --> {next_coords}   Reward: {reward}")
-        elif action == 11:
+        elif action == 29 or action == 30 or action == 31 or action == 32 or action == 33 or action == 34 or action == 35:
             print(f"(Derecha Tower) --> {next_coords}   Reward: {reward}")
 
 
@@ -532,9 +580,22 @@ if __name__ == "__main__":
     print("current State ",currentState,"\n")
 
     print("Q-table start:\n")
-    print(aichess.Q)
+    aichess.printQTableAsMatrix(aichess.Q)
+    #Comenta linia anterior y descomente la siguiente si deseas printear en formato original(nested diccionary)
+    #print(aichess.Q)
 
-    aichess.q_learning_Chess(currentState)
+    # This is to save the initial q-table to a file 
+    #aichess.saveQTableToFile('initialQtable.txt', aichess.Q)
+
+    # For section (2a) use sensibleReward = False
+    sensibleReward = False
+    # For section (2b) use sensibleReward = True
+    #sensibleReward = True
+
+    # For (2c) use drunken_sailor = True
+    drunken_sailor = False
+    #drunken_sailor = True
+    aichess.q_learning_Chess(currentState,sensibleReward,drunken_sailor)
     aichess.print_best_path(currentState)
 
     print("\nFinal board state\n")
