@@ -5,9 +5,9 @@ class Scenario:
         self.num_filas = 3
         self.num_columnas = 4
         self.num_acciones = 4
-        self.alpha = 0.1  # Tasa de aprendizaje
+        self.alpha = 0.3  # Tasa de aprendizaje
         self.gamma = 0.9  # Factor de descuento
-        self.epsilon = 0.5  # Exploración-Explotación trade-off
+        self.epsilon = 0.4 # Exploración-Explotación trade-off
         self.bloqueados = [(1, 1)]
         self.rewards_type = rewards_type
 
@@ -112,11 +112,12 @@ class Scenario:
         print(self.Q)
 
     
-    def selection_action_drunken(self, fila, columna, accion_elegida):
+    def selection_action_drunken(self, accion_elegida, episodio):
         # Probabilidad de fallar el movimiento
         if np.random.rand() < 0.01:
             # Devolver otra posible acción que no sea la escogida
             posibles_acciones = [a for a in range(self.num_acciones) if a != accion_elegida]
+            print("Voy borrachito, random action at Episode: ", episodio)
             return np.random.choice(posibles_acciones)
 
         # Seleccionar la acción escogida
@@ -134,7 +135,7 @@ class Scenario:
 
             while not (fila_actual, columna_actual) == goalPosition:
                 possible_action = self.selection_action(fila_actual, columna_actual)
-                accion = self.selection_action_drunken(fila_actual, columna_actual, possible_action)
+                accion = self.selection_action_drunken(possible_action, episodio)
 
                 # Verificar si el movimiento fue exitoso
                 if accion is not None:
